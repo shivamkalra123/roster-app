@@ -29,7 +29,7 @@ function Roster() {
   useEffect(() => {
     setLoading(true);
     // Fetch happens whenever viewDate changes
-    fetch(`http://localhost:3000/roster/team123/${year}/${month}`)
+    fetch(`https://roster-app-povc.onrender.com/roster/team123/${year}/${month}`)
       .then(res => res.json())
       .then(data => {
         buildCalendar(data, year, month);
