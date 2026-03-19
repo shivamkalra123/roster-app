@@ -1,10 +1,12 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
 
 const userRoutes = require("./routes/userRoutes");
 const rosterRoutes = require("./routes/rosterRoute");
 
 const app = express();
+
 
 // 🔥 Allow frontend requests
 app.use(cors());
