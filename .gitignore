@@ -25,3 +25,7 @@ dist-ssr
 backend/serviceAccountKey.json
 backend/.envbackend/config/serviceAccountKey.json
 *.json
+.env
+backend/.env
+.env
+backend/.env

@@ -58,21 +58,21 @@ const TeamSettings = ({ teamId }) => {
   };
 
   const addShift = () => {
-    const newShift = {
-      id: `shift_${Date.now()}`,
-      name: 'New Shift',
-      startTime: '09:00',
-      endTime: '17:00',
-      color: '#808080'
-    };
-    setShiftConfig({
-      ...shiftConfig,
-      shifts: [...shiftConfig.shifts, newShift],
-      quotas: { ...shiftConfig.quotas, [newShift.id]: 1 },
-      maxConsecutiveMonths: { ...shiftConfig.maxConsecutiveMonths, [newShift.id]: 3 }
-    });
+  const newShift = {
+    id: '',
+    name: 'New Shift',
+    startTime: '09:00',
+    endTime: '17:00',
+    color: '#808080'
   };
 
+  setShiftConfig({
+    ...shiftConfig,
+    shifts: [...shiftConfig.shifts, newShift],
+    quotas: { ...shiftConfig.quotas, [newShift.id]: 1 },
+    maxConsecutiveMonths: { ...shiftConfig.maxConsecutiveMonths, [newShift.id]: 3 }
+  });
+};
   const removeShift = (index) => {
     const shiftId = shiftConfig.shifts[index].id;
     const updatedShifts = shiftConfig.shifts.filter((_, i) => i !== index);
@@ -174,63 +174,92 @@ const TeamSettings = ({ teamId }) => {
 
           <div className="space-y-4">
             {shiftConfig?.shifts.map((shift, index) => (
-              <div key={shift.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Shift Name
-                    </label>
-                    <input
-                      type="text"
-                      value={shift.name}
-                      onChange={(e) => updateShift(index, 'name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Time
-                    </label>
-                    <input
-                      type="time"
-                      value={shift.startTime}
-                      onChange={(e) => updateShift(index, 'startTime', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Time
-                    </label>
-                    <input
-                      type="time"
-                      value={shift.endTime}
-                      onChange={(e) => updateShift(index, 'endTime', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Color
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="color"
-                        value={shift.color || '#808080'}
-                        onChange={(e) => updateShift(index, 'color', e.target.value)}
-                        className="h-10 w-20 border border-gray-300 rounded-lg"
-                      />
-                      <button
-                        onClick={() => removeShift(index)}
-                        className="text-red-600 hover:text-red-800 ml-auto"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+  <div key={index} className="border border-gray-200 rounded-lg p-4">
+    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+
+      {/* Shift ID Dropdown */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Shift ID
+        </label>
+
+        <select
+          value={shift.id}
+          onChange={(e) => updateShift(index, 'id', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Select Shift</option>
+          <option value="morning">Morning</option>
+          <option value="evening">Evening</option>
+          <option value="night">Night</option>
+        </select>
+      </div>
+
+      {/* Shift Name */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Shift Name
+        </label>
+        <input
+          type="text"
+          value={shift.name}
+          onChange={(e) => updateShift(index, 'name', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* Start Time */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Start Time
+        </label>
+        <input
+          type="time"
+          value={shift.startTime}
+          onChange={(e) => updateShift(index, 'startTime', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* End Time */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          End Time
+        </label>
+        <input
+          type="time"
+          value={shift.endTime}
+          onChange={(e) => updateShift(index, 'endTime', e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {/* Color + Delete */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Color
+        </label>
+
+        <div className="flex gap-2">
+          <input
+            type="color"
+            value={shift.color || '#808080'}
+            onChange={(e) => updateShift(index, 'color', e.target.value)}
+            className="h-10 w-20 border border-gray-300 rounded-lg"
+          />
+
+          <button
+            onClick={() => removeShift(index)}
+            className="text-red-600 hover:text-red-800 ml-auto"
+          >
+            <Trash2 className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+))}
           </div>
 
           <div className="mt-6 flex justify-end">

@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:3000",
+        target: "https://ubiquitous-space-yodel-75j5qvq7p6xfp96-3000.app.github.dev/",
         changeOrigin: true,
       },
     },
