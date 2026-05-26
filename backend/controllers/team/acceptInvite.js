@@ -1,8 +1,8 @@
 // backend/controllers/team/acceptInvite.js
 const jwt = require("jsonwebtoken");
 const emailService = require("../../services/emailService");
-const { getTeam, updateTeam, getUserByEmail, createUser } = require("./utils");
-const db = require("../../config/firebase");
+const { getTeam, updateTeam, db } = require("./utils");
+const bcrypt = require("bcryptjs");
 
 module.exports = async (req, res) => {
   try {
@@ -11,7 +11,14 @@ module.exports = async (req, res) => {
     console.log("=== ACCEPT INVITE DEBUG ===");
     console.log("Team ID:", teamId);
     console.log("Token:", inviteToken);
-    console.log("Name:", name);
+
+    if (!password) {
+      return res.status(400).json({ error: "Password is required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
 
     // Get team
     const team = await getTeam(teamId);
@@ -19,81 +26,98 @@ module.exports = async (req, res) => {
       return res.status(404).json({ error: "Team not found" });
     }
 
-    console.log("Total pending invites before:", team.pendingInvites?.length || 0);
-
-    // Find the specific pending invite
-    let pendingInvite = null;
-    let pendingInviteIndex = -1;
+    // Find user by inviteToken
+    const usersRef = db.collection("users");
+    const userSnapshot = await usersRef.where("inviteToken", "==", inviteToken).get();
     
-    if (team.pendingInvites && Array.isArray(team.pendingInvites)) {
-      for (let i = 0; i < team.pendingInvites.length; i++) {
-        const invite = team.pendingInvites[i];
-        
-        let tokenValue = null;
-        
-        if (typeof invite === 'object' && invite.token) {
-          tokenValue = invite.token;
-        } else if (typeof invite === 'object' && invite.inviteToken) {
-          tokenValue = invite.inviteToken;
-        }
-        
-        if (tokenValue === inviteToken) {
-          pendingInvite = invite;
-          pendingInviteIndex = i;
-          break;
-        }
-      }
-    }
+    let userId = null;
+    let userData = null;
+    let userEmail = null;
     
-    if (!pendingInvite) {
-      console.log("No pending invite found for token:", inviteToken);
-      return res.status(404).json({ error: "Invalid or expired invitation" });
-    }
-
-    // Get email from pending invite
-    const email = pendingInvite.email;
-    
-    // Check if expired
-    if (pendingInvite.expiresAt && new Date() > new Date(pendingInvite.expiresAt)) {
-      return res.status(400).json({ error: "Invitation has expired" });
-    }
-
-    console.log("Accepting invite for email:", email);
-
-    // Check if user already exists
-    let user = await getUserByEmail(email);
-    let isNewUser = false;
-
-    if (!user) {
-      // Create new user
-      isNewUser = true;
-      const userId = await createUser(email, name, password);
-      user = { id: userId, name: name || email.split('@')[0] };
-      console.log(`Created new user ${email} with ID: ${user.id}`);
+    if (!userSnapshot.empty) {
+      const userDoc = userSnapshot.docs[0];
+      userId = userDoc.id;
+      userData = userDoc.data();
+      userEmail = userData.email;
+      console.log("✅ Found user by inviteToken:", userId);
     } else {
-      console.log(`User ${email} already exists, ID: ${user.id}`);
-      // Update user's name if provided
-      if (name && user.name !== name) {
-        await db.collection("users").doc(user.id).update({
-          name: name,
-          updatedAt: new Date()
-        });
-        user.name = name;
+      // Try to find by email from pending invite
+      const pendingInvite = team.pendingInvites?.find(inv => inv.token === inviteToken);
+      if (pendingInvite) {
+        userEmail = pendingInvite.email;
+        const userByEmail = await usersRef.where("email", "==", userEmail).get();
+        if (!userByEmail.empty) {
+          userId = userByEmail.docs[0].id;
+          userData = userByEmail.docs[0].data();
+          console.log("✅ Found user by email:", userId);
+        }
       }
     }
-
-    // Check if user is already a member of this team
-    const existingMember = team.members?.find(m => m.userId === user.id);
     
+    if (!userId) {
+      // Create new user
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const newUserRef = db.collection("users").doc();
+      userId = newUserRef.id;
+      userEmail = userEmail || (team.pendingInvites?.find(inv => inv.token === inviteToken)?.email);
+      
+      await newUserRef.set({
+        email: userEmail,
+        name: name,
+        password: hashedPassword,
+        isRegistered: true,
+        role: "member",
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        teams: []  // Will add team below
+      });
+      console.log("✅ Created new user:", userId);
+    } else {
+      // Update existing user with password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await db.collection("users").doc(userId).update({
+        password: hashedPassword,
+        name: name || userData.name,
+        isRegistered: true,
+        updatedAt: new Date()
+      });
+      console.log("✅ Updated existing user with password:", userId);
+    }
+    
+    // ========== IMPORTANT: ADD TEAM TO USER'S TEAMS ARRAY ==========
+    const userDoc = await db.collection("users").doc(userId).get();
+    const currentTeams = userDoc.data().teams || [];
+    const alreadyHasTeam = currentTeams.some(t => t.teamId === teamId);
+    
+    if (!alreadyHasTeam) {
+      await db.collection("users").doc(userId).update({
+        teams: [...currentTeams, {
+          teamId: teamId,
+          teamName: team.name,
+          role: "member",
+          joinedAt: new Date()
+        }]
+      });
+      console.log(`✅ Added team ${team.name} to user's teams array`);
+    }
+    
+    // Remove invite from team's pendingInvites
+    if (team.pendingInvites) {
+      const updatedInvites = team.pendingInvites.filter(inv => inv.token !== inviteToken);
+      await updateTeam(teamId, { pendingInvites: updatedInvites });
+      console.log("✅ Removed invite from pendingInvites");
+    }
+    
+    // Add to team members if not already
+    const existingMember = team.members?.find(m => m.userId === userId);
     if (!existingMember) {
-      // Add member to team
       const newMember = {
-        userId: user.id,
-        email: email,
-        name: user.name,
+        userId: userId,
+        email: userEmail,
+        name: name,
         role: "member",
         addedAt: new Date(),
-        addedBy: pendingInvite.addedBy || team.createdBy,
+        addedBy: "invite",
         isRegistered: true,
         memberData: {
           baseGroup: null,
@@ -102,82 +126,40 @@ module.exports = async (req, res) => {
           leaves: []
         }
       };
-
-      // IMPORTANT: Only remove the specific invite, not all invites
-      const updatedMembers = [...(team.members || []), newMember];
-      const updatedInvites = team.pendingInvites.filter((_, index) => index !== pendingInviteIndex);
-
-      await updateTeam(teamId, {
-        members: updatedMembers,
-        pendingInvites: updatedInvites
-      });
       
-      console.log(`✅ Added user ${email} to team ${team.name}`);
-      console.log(`Removed specific invite. Remaining invites: ${updatedInvites.length}`);
-    } else {
-      // Member already exists, just remove the specific invite
-      const updatedInvites = team.pendingInvites.filter((_, index) => index !== pendingInviteIndex);
-      await updateTeam(teamId, { pendingInvites: updatedInvites });
-      console.log(`User ${email} was already a member, removed only their pending invite`);
+      const updatedMembers = [...(team.members || []), newMember];
+      await updateTeam(teamId, { members: updatedMembers });
+      console.log("✅ Added user to team members");
     }
-
-    // Update user's teams array
-    const userDoc = await db.collection("users").doc(user.id).get();
-    const userTeams = userDoc.data().teams || [];
-    const alreadyHasTeam = userTeams.some(t => t.teamId === teamId);
     
-    if (!alreadyHasTeam) {
-      await db.collection("users").doc(user.id).update({
-        teams: [...userTeams, {
-          teamId: teamId,
-          teamName: team.name,
-          role: "member",
-          joinedAt: new Date(),
-          memberData: {
-            baseGroup: null,
-            shiftCounts: {},
-            preferences: { preferred: [], avoid: [] },
-            leaves: []
-          }
-        }]
-      });
-      console.log(`✅ Updated user's teams array with team ${team.name}`);
-    }
-
-    // Send welcome email
-    await emailService.sendWelcomeEmail(email, user.name, team.name);
-
-    // Generate JWT token for auto-login
+    // Generate JWT token
     const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
     const authToken = jwt.sign(
       {
-        userId: user.id,
-        email: email,
+        userId: userId,
+        email: userEmail,
         role: "member",
         teamId: teamId,
-        name: user.name
+        name: name
       },
       JWT_SECRET,
       { expiresIn: "30d" }
     );
-
+    
+    console.log("✅ User successfully joined team with password and team mapping!");
+    
     res.json({
       success: true,
-      message: "Successfully joined the team",
       token: authToken,
       user: {
-        id: user.id,
-        name: user.name,
-        email: email,
-        teamId: teamId
-      },
-      team: {
-        id: teamId,
-        name: team.name
-      },
-      isNewUser: isNewUser
+        id: userId,
+        name: name,
+        email: userEmail,
+        teamId: teamId,
+        teamName: team.name
+      }
     });
-
+    
   } catch (error) {
     console.error("Accept Invite Error:", error);
     res.status(500).json({ error: error.message });

@@ -1,9 +1,9 @@
-// controllers/authController.js
+// backend/controllers/authController.js
 const { db } = require("../config/firebase");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = "your_secret_key"; // move to .env later
+const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
 class AuthController {
   
@@ -12,61 +12,75 @@ class AuthController {
     try {
       const { email, password } = req.body;
 
-      const teamsSnap = await db.collection("teams").get();
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password required" });
+      }
 
-      let foundUser = null;
-      let teamId = null;
+      const usersRef = db.collection("users");
+      const snapshot = await usersRef.where("email", "==", email).get();
 
-      // 🔥 search across teams
-      for (const teamDoc of teamsSnap.docs) {
-        const usersSnap = await db
-          .collection("teams")
-          .doc(teamDoc.id)
-          .collection("users")
-          .where("email", "==", email)
-          .get();
+      if (snapshot.empty) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
 
-        if (!usersSnap.empty) {
-          foundUser = usersSnap.docs[0];
-          teamId = teamDoc.id;
-          break;
+      const userDoc = snapshot.docs[0];
+      const user = userDoc.data();
+      const userId = userDoc.id;
+
+      if (!user.password) {
+        return res.status(401).json({ 
+          error: "Account not activated. Please check your invitation email." 
+        });
+      }
+
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      
+      if (!isValidPassword) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+
+      const userTeams = user.teams || [];
+      let primaryTeamId = null;
+      let primaryTeamName = null;
+
+      for (const team of userTeams) {
+        if (!primaryTeamId) {
+          primaryTeamId = team.teamId;
+          primaryTeamName = team.teamName;
         }
       }
 
-      if (!foundUser) {
-        return res.status(401).json({ error: "User not found" });
-      }
-
-      const user = foundUser.data();
-
-      const isMatch = await bcrypt.compare(password, user.password);
-
-      if (!isMatch) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
+      await db.collection("users").doc(userId).update({
+        lastLogin: new Date()
+      });
 
       const token = jwt.sign(
         {
-          userId: foundUser.id,
+          userId: userId,
+          email: user.email,
+          name: user.name,
           role: "member",
-          teamId
+          teamId: primaryTeamId
         },
         JWT_SECRET,
-        { expiresIn: "7d" }
+        { expiresIn: "30d" }
       );
 
       res.json({
         success: true,
-        token,
+        token: token,
         user: {
-          id: foundUser.id,
+          id: userId,
           name: user.name,
-          teamId
+          email: user.email,
+          teamId: primaryTeamId,
+          teamName: primaryTeamName,
+          role: "member"
         }
       });
-
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+    } catch (error) {
+      console.error("Member login error:", error);
+      res.status(500).json({ error: error.message });
     }
   }
 
@@ -76,36 +90,24 @@ class AuthController {
       const { email, password } = req.body;
 
       if (!email || !password) {
-        return res.status(400).json({
-          error: "Email and password required"
-        });
+        return res.status(400).json({ error: "Email and password required" });
       }
 
-      // 🔹 Find admin by email
-      const snap = await db
-        .collection("admins")
-        .where("email", "==", email)
-        .get();
+      const snap = await db.collection("admins").where("email", "==", email).get();
 
       if (snap.empty) {
-        return res.status(401).json({
-          error: "Invalid credentials"
-        });
+        return res.status(401).json({ error: "Invalid credentials" });
       }
 
       const adminDoc = snap.docs[0];
       const admin = adminDoc.data();
 
-      // 🔹 Compare password
       const isMatch = await bcrypt.compare(password, admin.password);
 
       if (!isMatch) {
-        return res.status(401).json({
-          error: "Invalid credentials"
-        });
+        return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // 🔹 Generate token
       const token = jwt.sign(
         {
           adminId: adminDoc.id,
@@ -121,7 +123,8 @@ class AuthController {
         token,
         admin: {
           id: adminDoc.id,
-          email: admin.email
+          email: admin.email,
+          name: admin.name
         }
       });
 
@@ -143,10 +146,8 @@ class AuthController {
         });
       }
 
-      // Verify the token
       const decoded = jwt.verify(token, JWT_SECRET);
       
-      // Check if it's an admin token
       if (decoded.role === 'admin' || decoded.adminId) {
         const adminDoc = await db.collection("admins").doc(decoded.adminId).get();
         
@@ -161,34 +162,25 @@ class AuthController {
           success: true,
           admin: {
             id: adminDoc.id,
-            email: adminDoc.data().email
+            email: adminDoc.data().email,
+            name: adminDoc.data().name
           }
         });
       }
       
-      // Check if it's a member token
       if (decoded.role === 'member' || decoded.userId) {
-        // Find user across teams
-        const teamsSnap = await db.collection("teams").get();
-        
-        for (const teamDoc of teamsSnap.docs) {
-          const userDoc = await db
-            .collection("teams")
-            .doc(teamDoc.id)
-            .collection("users")
-            .doc(decoded.userId)
-            .get();
-            
-          if (userDoc.exists) {
-            return res.json({
-              success: true,
-              user: {
-                id: userDoc.id,
-                name: userDoc.data().name,
-                teamId: teamDoc.id
-              }
-            });
-          }
+        const userDoc = await db.collection("users").doc(decoded.userId).get();
+          
+        if (userDoc.exists) {
+          return res.json({
+            success: true,
+            user: {
+              id: userDoc.id,
+              name: userDoc.data().name,
+              email: userDoc.data().email,
+              teamId: decoded.teamId
+            }
+          });
         }
       }
       

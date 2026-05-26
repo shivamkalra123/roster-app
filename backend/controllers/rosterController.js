@@ -38,6 +38,72 @@ class RosterController {
     }
   }
 
+  // Add this method to your rosterController.js before the module.exports
+
+// ==================== GET SHIFT FREQUENCY TABLE ====================
+static async getShiftFrequencyTable(req, res) {
+  try {
+    const { teamId } = req.params;
+    const adminId = req.admin.adminId;
+
+    // Verify admin access
+    const adminDoc = await db.collection("admins").doc(adminId).get();
+    const adminTeams = adminDoc.data().teams || [];
+    if (!adminTeams.includes(teamId)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const result = await RosterService.getShiftFrequencyTable(teamId);
+    res.json(result);
+  } catch (error) {
+    console.error("Get Shift Frequency Table Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// ==================== GET MEMBERS WITH WEEKLY OFF DAYS ====================
+static async getMembers(req, res) {
+  try {
+    const { teamId } = req.params;
+    const adminId = req.admin.adminId;
+
+    // Verify admin access
+    const adminDoc = await db.collection("admins").doc(adminId).get();
+    const adminTeams = adminDoc.data().teams || [];
+    if (!adminTeams.includes(teamId)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const result = await RosterService.getMembers(teamId);
+    res.json(result);
+  } catch (error) {
+    console.error("Get Members Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+// ==================== UPDATE MEMBER WEEKLY OFF DAYS ====================
+static async updateMemberWeeklyOff(req, res) {
+  try {
+    const { teamId, memberId } = req.params;
+    const { weeklyOffDays } = req.body;
+    const adminId = req.admin.adminId;
+
+    // Verify admin access
+    const adminDoc = await db.collection("admins").doc(adminId).get();
+    const adminTeams = adminDoc.data().teams || [];
+    if (!adminTeams.includes(teamId)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const result = await RosterService.updateMemberWeeklyOff(teamId, memberId, weeklyOffDays);
+    res.json(result);
+  } catch (error) {
+    console.error("Update Member Weekly Off Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+}
+
   // ==================== CONFIRM ROSTER ====================
   static async confirmRoster(req, res) {
     try {

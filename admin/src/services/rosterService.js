@@ -166,6 +166,35 @@ export const revertSwap = async (teamId, year, month, swapId, revertedBy) => {
   }
 };
 
+// Add to rosterService.js
+
+export const getMembers = async (teamId) => {
+  try {
+    const response = await api.get(`/roster/${teamId}/members`);  // ✅ Correct endpoint
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { error: 'Failed to get members' };
+  }
+};
+// Add to admin/src/services/rosterService.js
+
+export const updateMemberShiftAssignment = async (teamId, memberId, shiftId) => {
+  try {
+    const response = await api.put(`/roster/${teamId}/members/${memberId}/assign-shift`, { shiftId });
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { error: 'Failed to assign shift' };
+  }
+};
+
+export const updateMemberWeeklyOff = async (teamId, memberId, weeklyOffDays) => {
+  try {
+    const response = await api.put(`/roster/${teamId}/members/${memberId}/weekly-off`, { weeklyOffDays }); // ✅ Correct endpoint
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { error: 'Failed to update weekly off days' };
+  }
+};
 /**
  * Validate a swap before executing
  */

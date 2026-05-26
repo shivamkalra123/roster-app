@@ -701,84 +701,141 @@ const RosterManagement = ({ teamId }) => {
       )}
 
       {/* Shift Configuration Modal */}
-      {showShiftConfig && editingConfig && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-800">Shift Configuration</h3>
-                <button onClick={() => setShowShiftConfig(false)} className="text-gray-500 hover:text-gray-700">×</button>
-              </div>
+// frontend/src/components/Roster/RosterManagement.jsx - Update the Shift Config Modal
 
-              {/* Weekend Staff Count */}
-              <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Number of Weekend Workers
-                </label>
-                <p className="text-xs text-gray-500 mb-2">
-                  These workers will work Monday-Wednesday + Saturday-Sunday and get Thursday-Friday off.
-                </p>
+{showShiftConfig && editingConfig && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+    <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto m-4">
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-800">Shift Configuration</h3>
+          <button onClick={() => setShowShiftConfig(false)} className="text-gray-500 hover:text-gray-700">×</button>
+        </div>
+
+       
+
+        {/* Weekend Staff Count */}
+        <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Number of Weekend Workers
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            These workers will work Monday-Wednesday + Saturday-Sunday and get Thursday-Friday off.
+          </p>
+          <input
+            type="number"
+            min="0"
+            max="20"
+            value={editingConfig.weekendStaffCount || 3}
+            onChange={(e) => updateWeekendStaffCount(e.target.value)}
+            className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Daily Requirements Table - Only show Morning, Evening, Night */}
+        <div className="mb-6">
+  <h4 className="font-semibold text-gray-800 mb-3">
+    Daily Shift Requirements
+  </h4>
+
+  <div className="overflow-x-auto">
+
+    <table className="min-w-full divide-y divide-gray-200 border">
+
+      <thead className="bg-gray-50">
+        <tr>
+
+          <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+            Day
+          </th>
+
+          {editingConfig.shifts.map((shift) => (
+
+            <th
+              key={shift.id}
+              className="px-4 py-2 text-left text-sm font-medium text-gray-500"
+            >
+              <div className="flex flex-col">
+                <span>{shift.name}</span>
+
+                <span className="text-xs text-gray-400">
+                  {shift.id}
+                </span>
+              </div>
+            </th>
+
+          ))}
+
+        </tr>
+      </thead>
+
+      <tbody className="divide-y divide-gray-200">
+
+        {[
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+          'Sunday'
+        ].map(day => (
+
+          <tr key={day}>
+
+            <td className="px-4 py-2 text-sm font-medium text-gray-900">
+              {day}
+            </td>
+
+            {editingConfig.shifts.map((shift) => (
+
+              <td
+                key={shift.id}
+                className="px-4 py-2"
+              >
                 <input
                   type="number"
                   min="0"
                   max="20"
-                  value={editingConfig.weekendStaffCount || 3}
-                  onChange={(e) => updateWeekendStaffCount(e.target.value)}
-                  className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={
+                    editingConfig.dailyRequirements?.[day]?.[shift.id] || 0
+                  }
+                  onChange={(e) =>
+                    updateDailyRequirement(
+                      day,
+                      shift.id,
+                      e.target.value
+                    )
+                  }
+                  className="w-20 px-2 py-1 border border-gray-300 rounded text-center"
                 />
-              </div>
+              </td>
 
-              {/* Daily Requirements Table */}
-              <div className="mb-6">
-                <h4 className="font-semibold text-gray-800 mb-3">Daily Shift Requirements</h4>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 border">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">Day</th>
-                        {editingConfig.shifts.map(shift => (
-                          <th key={shift.id} className="px-4 py-2 text-left text-sm font-medium text-gray-500">
-                            {shift.name}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                        <tr key={day}>
-                          <td className="px-4 py-2 text-sm font-medium text-gray-900">{day}</td>
-                          {editingConfig.shifts.map(shift => (
-                            <td key={shift.id} className="px-4 py-2">
-                              <input
-                                type="number"
-                                min="0"
-                                max="20"
-                                value={editingConfig.dailyRequirements[day]?.[shift.id] || 0}
-                                onChange={(e) => updateDailyRequirement(day, shift.id, e.target.value)}
-                                className="w-20 px-2 py-1 border border-gray-300 rounded text-center"
-                              />
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+            ))}
 
-              <div className="flex gap-3 mt-6">
-                <button onClick={handleSaveShiftConfig} disabled={loading} className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
-                  {loading ? 'Saving...' : 'Save Configuration'}
-                </button>
-                <button onClick={() => setShowShiftConfig(false)} className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          </div>
+          </tr>
+
+        ))}
+
+      </tbody>
+
+    </table>
+
+  </div>
+</div>
+
+        <div className="flex gap-3 mt-6">
+          <button onClick={handleSaveShiftConfig} disabled={loading} className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
+            {loading ? 'Saving...' : 'Save Configuration'}
+          </button>
+          <button onClick={() => setShowShiftConfig(false)} className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400 transition">
+            Cancel
+          </button>
         </div>
-      )}
-
+      </div>
+    </div>
+  </div>
+)}
       {/* Shift Frequency Table Modal */}
       {showFrequencyTable && (
         <ShiftFrequencyTable teamId={teamId} onClose={() => setShowFrequencyTable(false)} />

@@ -131,7 +131,49 @@ router.post('/:teamId/:year/:month/:day/validate-swap', async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+// Add these routes before the module.exports
 
+// Get all members with their weekly off days
+router.get("/:teamId/members", async (req, res) => {
+  try {
+    const { teamId } = req.params;
+    console.log(`📋 Getting members for team: ${teamId}`);
+    const result = await RosterService.getMembers(teamId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error getting members:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Update member's weekly off days
+router.put("/:teamId/members/:memberId/weekly-off", async (req, res) => {
+  try {
+    const { teamId, memberId } = req.params;
+    const { weeklyOffDays } = req.body;
+    console.log(`📝 Updating weekly off days for member ${memberId}:`, weeklyOffDays);
+    const result = await RosterService.updateMemberWeeklyOff(teamId, memberId, weeklyOffDays);
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating weekly off days:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+// Add these routes to rosterRoute.js
+
+// Update member's shift assignment
+router.put("/:teamId/members/:memberId/assign-shift", async (req, res) => {
+  try {
+    const { teamId, memberId } = req.params;
+    const { shiftId } = req.body;
+    console.log(`📝 Assigning shift ${shiftId} to member ${memberId}`);
+    const result = await RosterService.updateMemberShiftAssignment(teamId, memberId, shiftId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error assigning shift:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
 // Statistics routes
 router.get("/:teamId/statistics", RosterController.getRosterStatistics);
 

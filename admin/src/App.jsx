@@ -1,4 +1,4 @@
-// src/App.jsx
+// admin/src/App.jsx
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -8,7 +8,7 @@ import Navbar from './components/Layout/Navbar';
 import TeamList from './components/Team/TeamList';
 import CreateTeam from './components/Team/CreateTeam';
 import TeamDashboard from './components/Team/TeamDashboard';
-import AcceptInvite from './pages/AcceptInvite';
+// Remove this line -> import AcceptInvite from './pages/AcceptInvite';
 
 const ProtectedRoute = ({ children }) => {
   const { admin, loading } = useAuth();
@@ -32,7 +32,9 @@ const AppContent = () => {
       {admin && <Navbar />}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Routes>
-          <Route path="/accept-invite" element={<AcceptInvite />} />
+          {/* Remove this route - it's now in frontend */}
+          {/* <Route path="/accept-invite" element={<AcceptInvite />} /> */}
+          
           <Route path="/login" element={<AdminLogin />} />
           <Route
             path="/dashboard"

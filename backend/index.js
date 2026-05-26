@@ -2,10 +2,11 @@ const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
 
-const userRoutes = require("./routes/userRoutes");
+
 const rosterRoutes = require("./routes/rosterRoute");
 const authRoutes = require("./routes/authRoutes");
 const teamRoutes = require("./routes/teamRoutes");
+const teamMemberRoutes = require("./routes/teamMemberRoutes");
 
 const app = express();
 
@@ -13,6 +14,7 @@ const app = express();
 const allowedOrigins = [
     'https://v6ln8kdl-5173.inc1.devtunnels.ms',
     'http://localhost:5173',
+    'http://localhost:5174',
     'http://localhost:3000'
 ];
 
@@ -41,10 +43,11 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
-app.use("/api/users", userRoutes);
+
 app.use("/api/roster", rosterRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/teams", teamRoutes);
+app.use("/api/teams/:teamId", teamMemberRoutes);
 
 // Health check
 app.get("/health", (req, res) => {
