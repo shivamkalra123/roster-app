@@ -7,6 +7,8 @@ const rosterRoutes = require("./routes/rosterRoute");
 const authRoutes = require("./routes/authRoutes");
 const teamRoutes = require("./routes/teamRoutes");
 const teamMemberRoutes = require("./routes/teamMemberRoutes");
+const leaveRoutes =
+  require('./routes/leaveRoute');
 
 const app = express();
 
@@ -43,6 +45,8 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
+
+app.use('/api/leave', leaveRoutes);
 
 app.use("/api/roster", rosterRoutes);
 app.use("/api/auth", authRoutes);

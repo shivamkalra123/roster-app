@@ -276,17 +276,7 @@ const TeamSettings = ({ teamId }) => {
             <Clock className="inline h-4 w-4 mr-2" />
             Shift Timings
           </button>
-          <button
-            onClick={() => setActiveSection('quotas')}
-            className={`pb-3 px-1 font-medium text-sm transition whitespace-nowrap ${
-              activeSection === 'quotas'
-                ? 'border-b-2 border-blue-600 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Users className="inline h-4 w-4 mr-2" />
-            Shift Quotas
-          </button>
+         
           <button
             onClick={() => setActiveSection('shiftAssignment')}
             className={`pb-3 px-1 font-medium text-sm transition whitespace-nowrap ${

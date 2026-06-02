@@ -434,7 +434,223 @@ static async getShiftRequirements(req, res) {
     res.status(500).json({ error: error.message });
   }
 }
+// backend/controllers/rosterController.js
 
+// ================= GET TEAM ROSTER =================
+// controllers/rosterController.js
+
+// ================= GET TEAM ROSTER =================
+// ================= GET TEAM ROSTER =================
+static async getTeamRoster(req, res) {
+  try {
+
+    const {
+      teamId,
+      year,
+      month
+    } = req.params;
+
+    console.log(
+      `📅 Fetching roster for ${teamId} ${year}-${month}`
+    );
+
+    // ================= FETCH ROSTER =================
+    const rosterDoc = await db
+      .collection('teams')
+      .doc(teamId)
+      .collection('rosters')
+      .doc(`${year}-${month}`)
+      .get();
+
+    if (!rosterDoc.exists) {
+      return res.status(404).json({
+        error: 'Roster not found'
+      });
+    }
+
+    const rosterData =
+      rosterDoc.data();
+
+    const roster =
+      rosterData.roster || {};
+
+    // ================= CONVERT TO USER SCHEDULES =================
+    const userMap =
+      new Map();
+
+    Object.keys(roster)
+      .forEach(day => {
+
+        const assignments =
+          roster[day] || [];
+
+        assignments.forEach(
+          assignment => {
+
+            const userId =
+              assignment.userId ||
+              assignment.memberId;
+
+            if (!userId) return;
+
+            // CREATE USER
+            if (
+              !userMap.has(userId)
+            ) {
+
+              userMap.set(
+                userId,
+                {
+                  userId,
+
+                  name:
+                    assignment.name ||
+                    assignment.userName ||
+                    'Unknown',
+
+                  schedule: {}
+                }
+              );
+            }
+
+            const user =
+              userMap.get(userId);
+
+            // STORE SHIFT
+            user.schedule[day] =
+              assignment.shift || 'OFF';
+          }
+        );
+      });
+
+    // ARRAY
+    const userSchedules =
+      Array.from(
+        userMap.values()
+      );
+
+    console.log(
+      'USER SCHEDULES:',
+      userSchedules
+    );
+
+    // ================= FETCH APPROVED LEAVES =================
+    const leaveSnapshot =
+      await db
+        .collection('teams')
+        .doc(teamId)
+        .collection('leaveRequests')
+        .where(
+          'status',
+          '==',
+          'approved'
+        )
+        .get();
+
+    const approvedLeaves =
+      [];
+
+    leaveSnapshot.forEach(
+      doc => {
+
+        approvedLeaves.push(
+          doc.data()
+        );
+      }
+    );
+
+    console.log(
+      'APPROVED LEAVES:',
+      approvedLeaves
+    );
+
+    // ================= APPLY LEAVES =================
+    approvedLeaves.forEach(
+      leave => {
+
+        const member =
+          userSchedules.find(
+            u =>
+              u.userId ===
+              leave.userId
+          );
+
+        if (!member) return;
+
+        const start =
+          new Date(
+            leave.startDate
+          );
+
+        const end =
+          new Date(
+            leave.endDate
+          );
+
+        for (
+          let d =
+            new Date(start);
+
+          d <= end;
+
+          d.setDate(
+            d.getDate() + 1
+          )
+        ) {
+
+          const leaveYear =
+            d.getFullYear();
+
+          const leaveMonth =
+            d.getMonth() + 1;
+
+          // ONLY CURRENT MONTH
+          if (
+            leaveYear !==
+              Number(year) ||
+            leaveMonth !==
+              Number(month)
+          ) {
+            continue;
+          }
+
+          const leaveDay =
+            d.getDate();
+
+          console.log(
+            `🏖️ Applying leave for ${member.name} on day ${leaveDay}`
+          );
+
+          // UPDATE ONLY THIS DAY
+          member.schedule[
+            leaveDay
+          ] = 'LEAVE';
+        }
+      }
+    );
+
+    // ================= RESPONSE =================
+    return res.json({
+      success: true,
+
+      roster: {
+        ...rosterData,
+        userSchedules
+      }
+    });
+
+  } catch (error) {
+
+    console.error(
+      'GET TEAM ROSTER ERROR:',
+      error
+    );
+
+    return res.status(500).json({
+      error: error.message
+    });
+  }
+}
   // ==================== GET MEMBER ROSTER (for members) ====================
   static async getMemberRoster(req, res) {
     try {

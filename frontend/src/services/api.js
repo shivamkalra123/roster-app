@@ -10,12 +10,14 @@ const api = axios.create({
   },
 });
 
+// Add request interceptor to log requests
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log(`📤 API Request: ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
   (error) => {
@@ -23,15 +25,15 @@ api.interceptors.request.use(
   }
 );
 
+// Add response interceptor to log responses
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`📥 API Response: ${response.status} ${response.config.url}`);
+    return response;
+  },
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('userType');
-      window.location.href = '/login';
-    }
+    console.error(`❌ API Error:`, error.response?.status, error.config?.url);
+    console.error('Error details:', error.response?.data);
     return Promise.reject(error);
   }
 );
