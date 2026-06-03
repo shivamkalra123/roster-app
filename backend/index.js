@@ -20,7 +20,7 @@ const allowedOrigins = [
     'http://localhost:3000',
     'https://roster-app-povc.onrender.com',
     'https://roster-app-amak.vercel.app',
-    'https://roster-app-ouqf.vercel.app'
+    'https://roster-app-3pp2.vercel.app',
 ];
 
 // Configure CORS properly
