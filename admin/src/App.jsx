@@ -8,7 +8,7 @@ import Navbar from './components/Layout/Navbar';
 import TeamList from './components/Team/TeamList';
 import CreateTeam from './components/Team/CreateTeam';
 import TeamDashboard from './components/Team/TeamDashboard';
-// Remove this line -> import AcceptInvite from './pages/AcceptInvite';
+
 
 const ProtectedRoute = ({ children }) => {
   const { admin, loading } = useAuth();
