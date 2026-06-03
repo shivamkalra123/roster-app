@@ -17,7 +17,8 @@ const allowedOrigins = [
     'https://v6ln8kdl-5173.inc1.devtunnels.ms',
     'http://localhost:5173',
     'http://localhost:5174',
-    'http://localhost:3000'
+    'http://localhost:3000',
+    'https://roster-app-povc.onrender.com'
 ];
 
 // Configure CORS properly
