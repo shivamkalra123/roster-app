@@ -1,0 +1,60 @@
+name: Deploy Roster App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ap-south-1
+      ECR_REGISTRY: 530558031194.dkr.ecr.ap-south-1.amazonaws.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Backend
+        run: |
+          docker build -t roster-backend ./backend
+          docker tag roster-backend:latest $ECR_REGISTRY/roster-backend:latest
+          docker push $ECR_REGISTRY/roster-backend:latest
+
+      - name: Build Frontend
+        run: |
+          docker build -t roster-frontend ./frontend
+          docker tag roster-frontend:latest $ECR_REGISTRY/roster-frontend:latest
+          docker push $ECR_REGISTRY/roster-frontend:latest
+
+      - name: Build Admin
+        run: |
+          docker build -t roster-admin ./admin
+          docker tag roster-admin:latest $ECR_REGISTRY/roster-admin:latest
+          docker push $ECR_REGISTRY/roster-admin:latest
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/roster
+
+            aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 530558031194.dkr.ecr.ap-south-1.amazonaws.com
+
+            docker compose pull
+            docker compose up -d --remove-orphans
