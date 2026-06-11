@@ -43,9 +43,3 @@ jobs:
           echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > admin/.env
           docker build -t $ECR_REGISTRY/roster-admin:latest ./admin
           docker push $ECR_REGISTRY/roster-admin:latest
-
-      - name: Deploy Containers
-        run: |
-          cd ~/roster
-          docker compose pull
-          docker compose up -d --remove-orphans
