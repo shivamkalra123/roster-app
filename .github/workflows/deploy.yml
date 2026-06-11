@@ -45,16 +45,25 @@ jobs:
           docker tag roster-admin:latest $ECR_REGISTRY/roster-admin:latest
           docker push $ECR_REGISTRY/roster-admin:latest
 
+      - name: Create SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2.pem
+          chmod 600 ~/.ssh/ec2.pem
+
+      - name: Verify SSH Key
+        run: |
+          head -1 ~/.ssh/ec2.pem
+          tail -1 ~/.ssh/ec2.pem
+          wc -l ~/.ssh/ec2.pem
+
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/roster
-
-            aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 530558031194.dkr.ecr.ap-south-1.amazonaws.com
-
-            docker compose pull
-            docker compose up -d --remove-orphans
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -i ~/.ssh/ec2.pem \
+              ec2-user@13.232.176.65 "
+                cd ~/roster &&
+                aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 530558031194.dkr.ecr.ap-south-1.amazonaws.com &&
+                docker compose pull &&
+                docker compose up -d --remove-orphans
+              "
