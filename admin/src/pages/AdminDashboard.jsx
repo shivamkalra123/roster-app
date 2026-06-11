@@ -67,7 +67,7 @@ const AdminDashboard = ({ teamId }) => {
     for (const adminId of adminIds) {
       if (!admins[adminId]) {
         try {
-          const response = await fetch(`http://localhost:3000/api/admins/${adminId}`, {
+          const response = await fetch(`http://13.232.176.65:3000/api/admins/${adminId}`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
@@ -99,7 +99,7 @@ const AdminDashboard = ({ teamId }) => {
   // Resend invitation
   const resendInvitation = async (email) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/teams/${teamId}/resend-invite`, {
+      const response = await fetch(`http://13.232.176.65:3000/api/teams/${teamId}/resend-invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ const AdminDashboard = ({ teamId }) => {
     if (!window.confirm(`Cancel invitation for ${email}?`)) return;
     
     try {
-      const response = await fetch(`http://localhost:3000/api/teams/${teamId}/cancel-invite`, {
+      const response = await fetch(`http://13.232.176.65:3000/api/teams/${teamId}/cancel-invite`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

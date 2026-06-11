@@ -21,6 +21,8 @@ const allowedOrigins = [
     'https://roster-app-povc.onrender.com',
     'https://roster-app-amak.vercel.app',
     'https://roster-app-3pp2.vercel.app',
+    'http://13.232.176.65:5173',
+    'http://13.232.176.65:5174'
 ];
 
 // Configure CORS properly
