@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     env:
       AWS_REGION: ap-south-1
@@ -24,46 +24,26 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login to Amazon ECR
+      - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build Backend
         run: |
-          docker build -t roster-backend ./backend
-          docker tag roster-backend:latest $ECR_REGISTRY/roster-backend:latest
+          docker build -t $ECR_REGISTRY/roster-backend:latest ./backend
           docker push $ECR_REGISTRY/roster-backend:latest
 
       - name: Build Frontend
         run: |
-          docker build -t roster-frontend ./frontend
-          docker tag roster-frontend:latest $ECR_REGISTRY/roster-frontend:latest
+          docker build -t $ECR_REGISTRY/roster-frontend:latest ./frontend
           docker push $ECR_REGISTRY/roster-frontend:latest
 
       - name: Build Admin
         run: |
-          docker build -t roster-admin ./admin
-          docker tag roster-admin:latest $ECR_REGISTRY/roster-admin:latest
+          docker build -t $ECR_REGISTRY/roster-admin:latest ./admin
           docker push $ECR_REGISTRY/roster-admin:latest
 
-      - name: Create SSH Key
+      - name: Deploy Containers
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2.pem
-          chmod 600 ~/.ssh/ec2.pem
-
-      - name: Verify SSH Key
-        run: |
-          head -1 ~/.ssh/ec2.pem
-          tail -1 ~/.ssh/ec2.pem
-          wc -l ~/.ssh/ec2.pem
-
-      - name: Deploy to EC2
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              -i ~/.ssh/ec2.pem \
-              ec2-user@13.232.176.65 "
-                cd ~/roster &&
-                aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 530558031194.dkr.ecr.ap-south-1.amazonaws.com &&
-                docker compose pull &&
-                docker compose up -d --remove-orphans
-              "
+          cd ~/roster
+          docker compose pull
+          docker compose up -d --remove-orphans
