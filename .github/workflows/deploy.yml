@@ -22,7 +22,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ap-south-1
 
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@v2
@@ -34,16 +34,12 @@ jobs:
 
       - name: Build Frontend
         run: |
+          echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > frontend/.env
           docker build -t $ECR_REGISTRY/roster-frontend:latest ./frontend
           docker push $ECR_REGISTRY/roster-frontend:latest
 
       - name: Build Admin
         run: |
+          echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > admin/.env
           docker build -t $ECR_REGISTRY/roster-admin:latest ./admin
           docker push $ECR_REGISTRY/roster-admin:latest
-
-      - name: Deploy Containers
-        run: |
-          cd ~/roster
-          docker compose pull
-          docker compose up -d --remove-orphans
