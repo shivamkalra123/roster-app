@@ -97,11 +97,10 @@ class RosterService {
     return config;
   }
 
-  static _getDayRequirements(shiftConfig, year, month, day) {
-    const dayOfWeek = this._getDayOfWeek(year, month, day);
-    const dayName = this._getDayName(dayOfWeek);
-    return shiftConfig.dailyRequirements[dayName] || {};
-  }
+ static _getDayRequirements(shiftConfig, date) {
+  const dayName = this._getDayName(date.getDay());
+  return shiftConfig.dailyRequirements?.[dayName] || {};
+}
 
   // ==================== USERS WITH HISTORY ====================
 
@@ -511,14 +510,46 @@ static async getMemberRoster(teamId, memberId, year, month) {
 
 // Replace your existing generateRoster method with this complete version
 
-static async generateRoster(teamId, year, month, shouldSave = false) {
+static async generateRoster(teamId, year, month, rosterStartDate=null,rosterEndDate=null,shouldSave = false) {
   console.log(`\n${'='.repeat(60)}`);
   console.log(`🚀 GENERATING ROSTER for ${month}/${year}`);
   console.log(`${'='.repeat(60)}\n`);
 
   const shiftConfig = await this._getShiftConfig(teamId);
   const users = await this._getUsersWithHistory(teamId);
-  const daysInMonth = new Date(year, month, 0).getDate();
+  const startDate = rosterStartDate
+  ? new Date(rosterStartDate)
+  : new Date(year, month - 1, 1);
+
+const endDate = rosterEndDate
+  ? new Date(rosterEndDate)
+  : new Date(year, month, 0);
+console.log("Roster Start Date (raw):", rosterStartDate);
+console.log("Roster End Date (raw):", rosterEndDate);
+
+console.log("Parsed Start:", startDate);
+console.log("Parsed End:", endDate);
+
+console.log("ISO Start:", startDate.toISOString());
+console.log("ISO End:", endDate.toISOString());
+
+// Validation
+// Validation
+if (startDate > endDate) {
+  throw new Error("Roster start date must be before end date.");
+}
+
+const totalDays =
+  Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+  const rosterDates = [];
+
+for (
+  let current = new Date(startDate);
+  current <= endDate;
+  current.setDate(current.getDate() + 1)
+) {
+  rosterDates.push(new Date(current));
+}
 
   if (!users.length) {
     throw new Error("No users found");
@@ -538,8 +569,23 @@ static async generateRoster(teamId, year, month, shouldSave = false) {
 
   for (const shift of shiftConfig.shifts) {
     let maxRequirement = 0;
-    for (let d = 1; d <= daysInMonth; d++) {
-      const requirements = this._getDayRequirements(shiftConfig, year, month, d);
+    for (const currentDate of rosterDates) {
+      
+      const d = currentDate.getDate();
+
+      const currentYear = currentDate.getFullYear();
+
+      const currentMonth = currentDate.getMonth() + 1;
+
+      const dayOfWeek = currentDate.getDay();
+
+      const dayName = this._getDayName(dayOfWeek);
+
+      const dateStr = currentDate.toISOString().split("T")[0];
+      const requirements = this._getDayRequirements(
+    shiftConfig,
+    currentDate
+);
       const req = requirements[shift.id] || 0;
       if (req > maxRequirement) {
         maxRequirement = req;
@@ -583,11 +629,21 @@ static async generateRoster(teamId, year, month, shouldSave = false) {
   const roster = {};
   const allUsers = users;
 
-  for (let d = 1; d <= daysInMonth; d++) {
-    const dayOfWeek = this._getDayOfWeek(year, month, d);
-    const dayName = this._getDayName(dayOfWeek);
-    const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  for (const currentDate of rosterDates) {
 
+    const d = currentDate.getDate();
+
+    const currentYear = currentDate.getFullYear();
+
+    const currentMonth = currentDate.getMonth() + 1;
+
+    const dayOfWeek = currentDate.getDay();
+
+    const dayName = this._getDayName(dayOfWeek);
+
+    const dateStr = currentDate.toISOString().split("T")[0];
+    
+   
     // Reset weekly counters on Monday
     if (dayName === "Monday") {
       allUsers.forEach(user => {
@@ -595,7 +651,11 @@ static async generateRoster(teamId, year, month, shouldSave = false) {
       });
     }
 
-    const requirements = this._getDayRequirements(shiftConfig, year, month, d);
+    const requirements = this._getDayRequirements(shiftConfig, currentDate);
+    console.log("\n==============================");
+console.log("Date:", dateStr);
+console.log("Day:", dayName);
+console.log("Requirements:", requirements);
     const todayAssignments = [];
 
     for (const shift of shiftConfig.shifts) {
@@ -644,7 +704,7 @@ static async generateRoster(teamId, year, month, shouldSave = false) {
       }
     }
 
-    roster[d] = todayAssignments;
+    roster[dateStr] = todayAssignments;
   }
 
   // ==================== BUILD USER SCHEDULES ====================
@@ -653,18 +713,21 @@ static async generateRoster(teamId, year, month, shouldSave = false) {
     const shiftCounts = {};
     let totalDaysWorked = 0;
 
-    for (let d = 1; d <= daysInMonth; d++) {
-      const assignments = roster[d] || [];
-      const assignment = assignments.find(a => a.userId === user.id);
+    for (const currentDate of rosterDates) {
+  const dateStr = currentDate.toISOString().split("T")[0];
 
-      if (assignment) {
-        schedule[d] = assignment.shift;
-        shiftCounts[assignment.shift] = (shiftCounts[assignment.shift] || 0) + 1;
-        totalDaysWorked++;
-      } else {
-        schedule[d] = "OFF";
-      }
-    }
+  const assignments = roster[dateStr] || [];
+  const assignment = assignments.find(a => a.userId === user.id);
+
+  if (assignment) {
+    schedule[dateStr] = assignment.shift;
+    shiftCounts[assignment.shift] =
+      (shiftCounts[assignment.shift] || 0) + 1;
+    totalDaysWorked++;
+  } else {
+    schedule[dateStr] = "OFF";
+  }
+}
 
     return {
       userId: user.id,
@@ -714,11 +777,23 @@ static async generateRoster(teamId, year, month, shouldSave = false) {
       .doc(`${year}-${month}`);
 
     await rosterRef.set({
-      ...result,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      published: true
-    });
+    ...result,
+
+    year,
+    month,
+
+    rosterStartDate:
+        rosterStartDate ??
+        startDate.toISOString().split("T")[0],
+
+    rosterEndDate:
+        rosterEndDate ??
+        endDate.toISOString().split("T")[0],
+
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    published: true
+});
 
     const batch = db.batch();
 
@@ -752,31 +827,36 @@ static async generateRoster(teamId, year, month, shouldSave = false) {
 }
   // ==================== PUBLIC METHODS ====================
 
-  static async generateRosterPreview(teamId, year, month) {
-    return await this.generateRoster(teamId, year, month, false);
+  static async generateRosterPreview(teamId, year, month,rosterStartDate=null,rosterEndDate=null) {
+    return await this.generateRoster(teamId, year, month,  rosterStartDate, rosterEndDate, false);
   }
 
-  static async confirmAndSaveRoster(teamId, year, month, confirmationToken) {
+  static async confirmAndSaveRoster(teamId, year, month, confirmationToken,rosterStartDate=null,rosterEndDate=null) {
     if (confirmationToken !== "CONFIRM") {
       throw new Error("Invalid confirmation token");
     }
-    return await this.generateRoster(teamId, year, month, true);
+    return await this.generateRoster(teamId, year, month,  rosterStartDate, rosterEndDate, true);
   }
 
   static async getRoster(teamId, year, month) {
-    const doc = await db
-      .collection("teams")
-      .doc(teamId)
-      .collection("rosters")
-      .doc(`${year}-${month}`)
-      .get();
+  console.log("Loading roster:", teamId, year, month);
+  console.log("Doc ID:", `${year}-${month}`);
 
-    if (!doc.exists) {
-      throw new Error("Roster not found");
-    }
+  const doc = await db
+    .collection("teams")
+    .doc(teamId)
+    .collection("rosters")
+    .doc(`${year}-${month}`)
+    .get();
 
-    return doc.data();
+  console.log("Exists:", doc.exists);
+
+  if (!doc.exists) {
+    throw new Error("Roster not found");
   }
+
+  return doc.data();
+}
 
   static async deleteRoster(teamId, year, month) {
     await db

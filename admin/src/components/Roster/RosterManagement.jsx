@@ -29,6 +29,7 @@ import {
 } from '../../services/rosterService';
 import ShiftFrequencyTable from './ShiftFrequencyTable';
 import ShiftSwapModal from './ShiftSwapModal';
+import RosterCalendar from '../../../../shared/components/RosterCalendar';
 import LeaveRequests from '../Leave/LeaveRequests';
 import toast from 'react-hot-toast';
 
@@ -36,6 +37,25 @@ const RosterManagement = ({ teamId }) => {
   const [activeTab, setActiveTab] = useState('roster'); // 'roster', 'leaveRequests', 'settings'
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const today = new Date();
+
+const getDefaultRosterDates = (year, month) => {
+  const start = new Date(year, month - 1, 1);
+  const end = new Date(year, month, 0);
+
+  return {
+    start: start.toISOString().split("T")[0],
+    end: end.toISOString().split("T")[0]
+  };
+};
+
+const defaults = getDefaultRosterDates(
+  selectedYear,
+  selectedMonth
+);
+
+const [rosterStartDate, setRosterStartDate] = useState(defaults.start);
+const [rosterEndDate, setRosterEndDate] = useState(defaults.end);
   const [loading, setLoading] = useState(false);
   const [rosterData, setRosterData] = useState(null);
   const [rosterArray, setRosterArray] = useState([]);
@@ -64,6 +84,16 @@ const RosterManagement = ({ teamId }) => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+  const defaults = getDefaultRosterDates(
+    selectedYear,
+    selectedMonth
+  );
+
+  setRosterStartDate(defaults.start);
+  setRosterEndDate(defaults.end);
+}, [selectedYear, selectedMonth]);
+
   const loadShiftConfig = async () => {
     try {
       const result = await getShiftConfig(teamId);
@@ -78,7 +108,9 @@ const RosterManagement = ({ teamId }) => {
 
   const processRosterData = (data) => {
     const roster = data.roster || {};
-    const days = Object.keys(roster).sort((a, b) => parseInt(a) - parseInt(b));
+    const days = Object.keys(roster).sort(
+  (a, b) => new Date(a) - new Date(b)
+);
     
     const memberMap = new Map();
     days.forEach(day => {
@@ -129,9 +161,18 @@ const RosterManagement = ({ teamId }) => {
   };
 
   const handlePreviewRoster = async () => {
+    const start = new Date(rosterStartDate);
+const end = new Date(rosterEndDate);
+
+if (start > end) {
+  toast.error("Roster start date cannot be after end date.");
+  return;
+}
+
+
     setLoading(true);
     try {
-      const result = await previewRoster(teamId, selectedYear, selectedMonth);
+      const result = await previewRoster(teamId, selectedYear, selectedMonth,rosterStartDate,rosterEndDate);
       if (result.success) {
         setRosterData(result);
         processRosterData(result);
@@ -152,7 +193,7 @@ const RosterManagement = ({ teamId }) => {
 
     setLoading(true);
     try {
-      const result = await confirmRoster(teamId, selectedYear, selectedMonth);
+      const result = await confirmRoster(teamId, selectedYear, selectedMonth, rosterStartDate, rosterEndDate);
       if (result.success) {
         toast.success('Roster confirmed and saved successfully!');
         await loadExistingRoster();
@@ -296,24 +337,34 @@ const RosterManagement = ({ teamId }) => {
     return icons[shiftType] || '🕒';
   };
 
-  const getDaysInMonth = (year, month) => {
-    return new Date(year, month, 0).getDate();
-  };
+  const getRosterDays = () => {
+  const start = new Date(rosterStartDate);
+  const end = new Date(rosterEndDate);
 
-  const getDayOfWeek = (year, month, day) => {
-    const date = new Date(year, month - 1, day);
-    return date.toLocaleString('default', { weekday: 'short' });
-  };
+  const rosterDays = [];
 
-  const isWeekend = (year, month, day) => {
-    const date = new Date(year, month - 1, day);
-    const dayOfWeek = date.getDay();
-    return dayOfWeek === 0 || dayOfWeek === 6;
-  };
+  let current = new Date(start);
 
-  const daysInMonth = getDaysInMonth(selectedYear, selectedMonth);
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  while (current <= end) {
+    rosterDays.push({
+      key: current.toISOString().split("T")[0],
+      day: current.getDate(),
+      month: current.getMonth() + 1,
+      year: current.getFullYear(),
+      date: new Date(current),
+      label: current.toLocaleDateString("default", {
+        day: "numeric",
+        month: "short"
+      })
+    });
 
+    current.setDate(current.getDate() + 1);
+  }
+
+  return rosterDays;
+};
+
+const days = getRosterDays();
   const loadFrequencyTable = async () => {
     try {
       const result = await getShiftFrequencyTable(teamId);
@@ -349,79 +400,127 @@ const RosterManagement = ({ teamId }) => {
       {/* Controls */}
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="w-48">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              {[2024, 2025, 2026].map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
 
-          <div className="w-48">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Month</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              {Array.from({ length: 12 }, (_, i) => i + 1).map(month => (
-                <option key={month} value={month}>
-                  {new Date(2000, month - 1, 1).toLocaleString('default', { month: 'long' })}
-                </option>
-              ))}
-            </select>
-          </div>
+  {/* Year */}
+  <div className="w-40">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Roster Year
+    </label>
 
-          <button
-            onClick={handlePreviewRoster}
-            disabled={loading}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
-          >
-            <Eye className="h-4 w-4" />
-            {loading ? 'Generating...' : 'Preview Roster'}
-          </button>
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={() => setShowShiftConfig(true)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition flex items-center gap-2"
-            >
-              <Settings className="h-4 w-4" />
-              Configure Shifts
-            </button>
-  
-          </div>
-          
-          
+    <select
+      value={selectedYear}
+      onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+    >
+      {[2024, 2025, 2026, 2027].map((year) => (
+        <option key={year} value={year}>
+          {year}
+        </option>
+      ))}
+    </select>
+  </div>
 
-          {rosterData && (
-            <>
-              <button
-                onClick={handleConfirmRoster}
-                disabled={loading}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-2"
-              >
-                <Save className="h-4 w-4" />
-                Confirm & Save
-              </button>
-              
-              <button
-                onClick={handleDeleteRoster}
-                disabled={loading}
-                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </button>
+  {/* Month */}
+  <div className="w-48">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Roster Month
+    </label>
 
-              
-            </>
-          )}
-        </div>
+    <select
+      value={selectedMonth}
+      onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+    >
+      {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
+        <option key={month} value={month}>
+          {new Date(2000, month - 1, 1).toLocaleString("default", {
+            month: "long",
+          })}
+        </option>
+      ))}
+    </select>
+  </div>
+
+  {/* Start Date */}
+  <div className="w-52">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Roster Start Date
+    </label>
+
+    <input
+      type="date"
+      value={rosterStartDate}
+      onChange={(e) => setRosterStartDate(e.target.value)}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+    />
+  </div>
+
+  {/* End Date */}
+  <div className="w-52">
+    <label className="block text-sm font-medium text-gray-700 mb-2">
+      Roster End Date
+    </label>
+
+    <input
+      type="date"
+      value={rosterEndDate}
+      onChange={(e) => setRosterEndDate(e.target.value)}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+    />
+  </div>
+
+  {/* Preview */}
+  <button
+    onClick={handlePreviewRoster}
+    disabled={loading}
+    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2"
+  >
+    <Eye className="h-4 w-4" />
+    {loading ? "Generating..." : "Preview Roster"}
+  </button>
+
+  {/* Load */}
+  <button
+    onClick={loadExistingRoster}
+    disabled={loading}
+    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition disabled:opacity-50 flex items-center gap-2"
+  >
+    <RefreshCw className="h-4 w-4" />
+    Load Existing
+  </button>
+
+  {rosterData && (
+    <>
+      <button
+        onClick={handleConfirmRoster}
+        disabled={loading}
+        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-2"
+      >
+        <Save className="h-4 w-4" />
+        Confirm & Save
+      </button>
+
+      <button
+        onClick={handleDeleteRoster}
+        disabled={loading}
+        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2"
+      >
+        <Trash2 className="h-4 w-4" />
+        Delete
+      </button>
+
+      <button
+        onClick={handleViewSwapHistory}
+        disabled={loading}
+        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2"
+      >
+        <ArrowLeftRight className="h-4 w-4" />
+        Swap History
+      </button>
+    </>
+  )}
+
+</div>
       </div>
 
       {/* Tab Navigation */}
@@ -462,157 +561,27 @@ const RosterManagement = ({ teamId }) => {
         </nav>
       </div>
 
-      {/* Roster Tab Content */}
-      {activeTab === 'roster' && (
-        <>
-          {/* Action Buttons */}
-          
-
-          {/* Calendar Roster View */}
-          {showPreview && rosterArray.length > 0 && (
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <CalendarIcon className="h-5 w-5" />
-                  {new Date(selectedYear, selectedMonth - 1, 1).toLocaleString('default', { month: 'long' })} {selectedYear} Roster
-                </h3>
-                <div className="flex justify-between items-center mt-1">
-                  <p className="text-blue-100 text-sm">
-                    {membersList.length} team members • {daysInMonth} days
-                  </p>
-                  {rosterData?.summary && (
-                    <p className="text-blue-100 text-sm">
-                      🟢 Weekend: {rosterData.summary.weekendWorkers} workers • 🔵 Weekday: {rosterData.summary.weekdayWorkers} workers
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="overflow-x-auto max-h-[70vh]">
-  <table className="min-w-full border-collapse">
-    <thead className="sticky top-0 z-20">
-      <tr className="bg-gray-100 border-b">
-        <th className="sticky left-0 bg-gray-100 z-30 px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r w-48">
-          <div className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Team Member
-          </div>
-        </th>
-
-        {days.map(day => {
-          const dayOfWeek = getDayOfWeek(selectedYear, selectedMonth, day);
-          const isWeekendDay = isWeekend(selectedYear, selectedMonth, day);
-
-          return (
-            <th
-              key={day}
-              className={`px-2 py-3 text-center text-sm font-medium ${
-                isWeekendDay ? 'bg-red-100' : 'bg-gray-100'
-              } min-w-[55px] border-b`}
-            >
-              <div className="text-gray-700 font-bold">{day}</div>
-              <div
-                className={`text-xs ${
-                  isWeekendDay ? 'text-red-600' : 'text-gray-500'
-                }`}
-              >
-                {dayOfWeek}
-              </div>
-            </th>
-          );
-        })}
-      </tr>
-    </thead>
-
-                  <tbody>
-                    {rosterArray.map((member) => (
-                      <tr key={member.memberId} className="border-b hover:bg-gray-50 transition">
-                        <td className="sticky left-0 bg-white z-10 px-4 py-3 font-medium text-gray-800 border-r whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${member.isWeekendWorker ? 'bg-green-500' : 'bg-blue-500'}`}></div>
-                            {member.memberName}
-                          </div>
-                        </td>
-                        {days.map(day => {
-                          const shift = member.schedule[day] || 'OFF';
-                          const shiftColor = getShiftColor(shift);
-                          const shiftIcon = getShiftIcon(shift);
-                          const isWeekendDay = isWeekend(selectedYear, selectedMonth, day);
-                          
-                          return (
-                            <td 
-                              key={day} 
-                              className={`px-2 py-2 text-center ${isWeekendDay ? 'bg-red-50/30' : ''} cursor-pointer hover:bg-gray-100 transition`}
-                              onContextMenu={(e) => handleRightClick(e, member, day)}
-                            >
-                              <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-semibold rounded-full ${shiftColor} border min-w-[60px]`}>
-                                <span className="mr-1">{shiftIcon}</span>
-                                {shift !== 'OFF' ? shift.charAt(0).toUpperCase() + shift.slice(1) : ''}
-                              </span>
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="p-4 border-t bg-gray-50">
-                <div className="flex flex-wrap gap-6 items-center">
-                  <span className="text-sm font-semibold text-gray-700">Legend:</span>
-                  {shiftConfig?.shifts?.map(shift => (
-                    <div key={shift.id} className="flex items-center gap-2">
-                      <span className={`w-4 h-4 rounded ${getShiftColor(shift.id)} border`}></span>
-                      <span className="text-sm text-gray-700 font-medium">{shift.name}</span>
-                      <span className="text-xs text-gray-500">({shift.startTime} - {shift.endTime})</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-gray-100 border border-gray-300"></div>
-                    <span className="text-sm text-gray-600">Day Off</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-red-100 border border-red-200"></div>
-                    <span className="text-sm text-gray-600">Weekend Day</span>
-                  </div>
-                  <div className="flex items-center gap-2 ml-auto">
-                    <span className="text-xs text-gray-500">💡 Right-click on any shift to swap</span>
-                  </div>
-                </div>
-                <div className="mt-3 pt-2 border-t border-gray-200 text-xs text-gray-500">
-                  <span className="font-medium">Schedule Pattern:</span> 🟢 Weekend workers work Mon-Tue-Wed + Sat-Sun (Off Thu-Fri) • 🔵 Weekday workers work Mon-Fri (Off Sat-Sun)
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* No Data State */}
-          {!showPreview && !loading && (
-            <div className="bg-white rounded-lg shadow p-12 text-center">
-              <CalendarIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No Roster Generated</h3>
-              <p className="text-gray-500 mb-4">
-                Click "Preview Roster" to generate a new roster or "Load Existing" to view a saved roster.
-              </p>
-              <button
-                onClick={handlePreviewRoster}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition inline-flex items-center gap-2"
-              >
-                <Eye className="h-4 w-4" />
-                Generate Preview
-              </button>
-            </div>
-          )}
-        </>
+      {/* Calendar Roster View */}
+      {showPreview && rosterArray.length > 0 && (
+        
+        <RosterCalendar
+          layout="admin"
+          title={`${new Date(selectedYear, selectedMonth - 1, 1).toLocaleString(
+  "default",
+  { month: "long" }
+)} ${selectedYear} Roster`}
+          subtitle={`${membersList.length} team members • ${rosterStartDate} → ${rosterEndDate}`}
+          selectedYear={selectedYear}
+          selectedMonth={selectedMonth}
+          days={days}
+          rows={rosterArray}
+          shiftConfig={shiftConfig}
+          summaryText={rosterData?.summary ? `🟢 Weekend: ${rosterData.summary.weekendWorkers} workers • 🔵 Weekday: ${rosterData.summary.weekdayWorkers} workers` : ''}
+          onCellContextMenu={handleRightClick}
+          showLegend
+          legendItems={[{ label: 'Right-click to swap', className: 'bg-blue-100' }]}
+        />
       )}
-
-      {/* Leave Requests Tab Content */}
-      {activeTab === 'leaveRequests' && (
-        <LeaveRequests teamId={teamId} />
-      )}
-
-      
 
       {/* Context Menu */}
       {contextMenu.show && (

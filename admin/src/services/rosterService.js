@@ -2,28 +2,52 @@
 import api from './api';
 
 // ==================== BASIC ROSTER OPERATIONS ====================
-export const previewRoster = async (teamId, year, month) => {
+export const previewRoster = async (
+  teamId,
+  year,
+  month,
+  rosterStartDate = null,
+  rosterEndDate = null
+) => {
   try {
-    const response = await api.post(`/roster/${teamId}/preview`, { year, month });
-    return response.data;
-  } catch (error) {
-    throw error.response?.data || { error: 'Failed to preview roster' };
-  }
-};
-
-export const confirmRoster = async (teamId, year, month) => {
-  try {
-    const response = await api.post(`/roster/${teamId}/confirm`, { 
-      year, 
-      month, 
-      confirmationToken: 'CONFIRM' 
+    const response = await api.post(`/roster/${teamId}/preview`, {
+      year,
+      month,
+      rosterStartDate,
+      rosterEndDate
     });
+
     return response.data;
   } catch (error) {
-    throw error.response?.data || { error: 'Failed to confirm roster' };
+    throw error.response?.data || {
+      error: 'Failed to preview roster'
+    };
   }
 };
 
+export const confirmRoster = async (
+  teamId,
+  year,
+  month,
+  rosterStartDate = null,
+  rosterEndDate = null
+) => {
+  try {
+    const response = await api.post(`/roster/${teamId}/confirm`, {
+      year,
+      month,
+      rosterStartDate,
+      rosterEndDate,
+      confirmationToken: 'CONFIRM'
+    });
+
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || {
+      error: 'Failed to confirm roster'
+    };
+  }
+};
 export const getRoster = async (teamId, year, month) => {
   try {
     const response = await api.get(`/roster/${teamId}/${year}/${month}`);

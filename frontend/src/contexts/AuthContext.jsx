@@ -37,16 +37,13 @@ export const AuthProvider = ({ children }) => {
 const login = async (email, password) => {
   try {
     // Change this URL to match your backend route
-    const response = await fetch(
-  `${import.meta.env.VITE_API_URL}/auth/member-login`,
-  {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ email, password }),
-  }
-);
+    const response = await fetch('https://ubiquitous-space-yodel-75j5qvq7p6xfp96-3000.app.github.dev/api/auth/member-login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
     const data = await response.json();
 

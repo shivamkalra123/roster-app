@@ -1,19 +1,10 @@
 // frontend/src/components/dashboard/MemberDashboard.jsx
 
 import React, { useState, useEffect } from 'react';
-import {
-  Calendar,
-  Clock,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Download
-} from 'lucide-react';
-import ApplyLeaveModal from '../Leave/ApplyLeaveModal';
-
-import { getTeamRoster } from '../../services/rosterService';
-import { useAuth } from '../../contexts/AuthContext';
+import { User, Calendar, Clock, History, LogOut, Download } from 'lucide-react';
+import { memberService } from '../../services/memberService';
 import toast from 'react-hot-toast';
+import RosterCalendar from '../../../../shared/components/RosterCalendar';
 
 const MemberDashboard = ({ onLogout }) => {
   const { user } = useAuth();
@@ -294,188 +285,143 @@ const MemberDashboard = ({ onLogout }) => {
 
       {/* Main */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Roster Tab */}
+        {activeTab === 'roster' && roster && (
+          <RosterCalendar
+            layout="member"
+            title={`My Roster - ${monthNames[selectedMonth - 1]} ${selectedYear}`}
+            selectedYear={selectedYear}
+            selectedMonth={selectedMonth}
+            days={days}
+            schedule={schedule}
+            shiftConfig={roster?.shiftConfig}
+            summaryText={`${roster?.member?.totalDaysWorked || 0} days worked this month`}
+            summaryCards={[
+              {
+                label: 'Days Worked',
+                value: roster?.member?.totalDaysWorked || 0,
+                className: 'bg-blue-50',
+              },
+              {
+                label: 'Current Shift',
+                value: roster?.member?.assignedShift || 'N/A',
+                className: 'bg-green-50',
+              },
+              {
+                label: 'Shift Types',
+                value: Object.keys(roster?.member?.shiftCounts || {}).length || 0,
+                className: 'bg-purple-50',
+              },
+              {
+                label: 'Total Shifts',
+                value: Object.values(roster?.member?.shiftCounts || {}).reduce((a, b) => a + b, 0) || 0,
+                className: 'bg-orange-50',
+              },
+            ]}
+            onPreviousMonth={goToPreviousMonth}
+            onNextMonth={goToNextMonth}
+            onDownload={downloadRoster}
+            showDownloadButton
+            showNavigation
+            showSummaryCards
+            showLegend
+          />
+        )}
 
-        <div className="bg-white rounded-lg shadow">
-
-          {/* Top Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4 rounded-t-lg">
-
-            <div className="flex justify-between items-center">
-
-              <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-
-                Team Roster - {monthNames[selectedMonth - 1]}{' '}
-                {selectedYear}
-              </h3>
-<button
-  onClick={() => setShowLeaveModal(true)}
-  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg transition flex items-center gap-2 text-sm"
->
-  <Calendar className="h-4 w-4" />
-  Apply Leave
-</button>
-              <button
-                onClick={downloadRoster}
-                className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg transition flex items-center gap-2 text-sm"
-              >
-                <Download className="h-4 w-4" />
-                Download
-              </button>
-              <ApplyLeaveModal
-  isOpen={showLeaveModal}
-  onClose={() => setShowLeaveModal(false)}
-  teamId={user?.teamId}
-/>
-
-            </div>
-
-            <div className="flex justify-between items-center mt-3">
-
-              <div className="flex gap-2">
-
-                <button
-                  onClick={goToPreviousMonth}
-                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg transition"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-
-                <button
-                  onClick={goToNextMonth}
-                  className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg transition"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-
+        {/* Profile Tab */}
+        {activeTab === 'profile' && profile && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">My Profile</h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Full Name</label>
+                  <p className="mt-1 text-lg font-medium text-gray-900">{profile.name}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Email Address</label>
+                  <p className="mt-1 text-lg font-medium text-gray-900">{profile.email}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Current Shift</label>
+                  <p className="mt-1 text-lg font-medium text-gray-900">{profile.currentShift || 'Not Assigned'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Team</label>
+                  <p className="mt-1 text-lg font-medium text-gray-900">{profile.teamName || 'Team Member'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Weekly Off Days</label>
+                  <div className="mt-1 flex gap-2 flex-wrap">
+                    {profile.weeklyOffDays?.map(day => (
+                      <span key={day} className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-700">
+                        {day} OFF
+                      </span>
+                    ))}
+                    {(!profile.weeklyOffDays || profile.weeklyOffDays.length === 0) && (
+                      <span className="text-sm text-gray-500">None set</span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-500">Member Since</label>
+                  <p className="mt-1 text-lg font-medium text-gray-900">
+                    {profile.joinedAt ? new Date(profile.joinedAt).toLocaleDateString() : 'N/A'}
+                  </p>
+                </div>
               </div>
-
-              <p className="text-blue-100 text-sm">
-                {schedule.length} team members
-              </p>
-
             </div>
           </div>
+        )}
 
-          {/* TEAM ROSTER */}
-          <div className="overflow-x-auto max-h-[70vh]">
-
-  <table className="min-w-full border-collapse">
-
-    {/* HEADER */}
-    <thead className="sticky top-0 z-20">
-
-      <tr className="bg-gray-100 border-b">
-
-        <th className="sticky left-0 bg-gray-100 z-30 px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r w-48">
-          Team Member
-        </th>
-
-        {days.map((day) => {
-
-          const date = new Date(
-            selectedYear,
-            selectedMonth - 1,
-            day
-          );
-
-          const dayOfWeek =
-            date.toLocaleString('default', {
-              weekday: 'short'
-            });
-
-          const isWeekend =
-            date.getDay() === 0 ||
-            date.getDay() === 6;
-
-          return (
-            <th
-              key={day}
-              className={`px-2 py-3 text-center text-sm font-medium min-w-[55px]
-              ${isWeekend ? 'bg-red-100' : 'bg-gray-100'}`}
-            >
-
-              <div className="font-bold text-gray-700">
-                {day}
-              </div>
-
-              <div
-                className={`text-xs ${
-                  isWeekend
-                    ? 'text-red-600'
-                    : 'text-gray-500'
-                }`}
-              >
-                {dayOfWeek}
-              </div>
-
-            </th>
-          );
-        })}
-
-      </tr>
-
-    </thead>
-
-    {/* BODY */}
-    <tbody>
-
-      {schedule.map((member) => (
-
-        <tr
-          key={member.userId}
-          className="border-b hover:bg-gray-50"
-        >
-
-          {/* MEMBER NAME */}
-          <td className="sticky left-0 bg-white z-10 px-4 py-3 font-medium text-gray-800 border-r whitespace-nowrap">
-
-            {member.name}
-
-          </td>
-
-          {/* DAYS */}
-          {days.map((day) => {
-
-            const shiftId =
-              member.schedule?.[day] || 'OFF';
-
-            const shiftName =
-              getShiftDisplayName(shiftId);
-
-            const shiftStyle =
-              getShiftColor(shiftId);
-
-            return (
-              <td
-                key={day}
-                className="px-2 py-2 text-center"
-              >
-
-                <span
-                  className="inline-flex items-center justify-center px-2 py-1 text-xs font-semibold rounded-full border min-w-[60px]"
-                  style={shiftStyle}
-                >
-
-                  {shiftName}
-
-                </span>
-
-              </td>
-            );
-          })}
-
-        </tr>
-
-      ))}
-
-    </tbody>
-
-  </table>
-
-</div>
-
-        </div>
+        {/* History Tab */}
+        {activeTab === 'history' && history && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Shift History</h2>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Month</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shift</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days Worked</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Weekend Worker</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {history.length > 0 ? (
+                    history.map((entry, index) => (
+                      <tr key={index}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(entry.year, entry.month - 1, 1).toLocaleString('default', { month: 'long' })} {entry.year}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                            {entry.shiftId}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{entry.daysWorked}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {entry.isWeekendWorker ? (
+                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Yes</span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">No</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
+                        No shift history found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

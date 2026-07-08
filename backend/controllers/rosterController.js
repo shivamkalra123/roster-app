@@ -8,7 +8,7 @@ class RosterController {
   static async previewRoster(req, res) {
     try {
       const { teamId } = req.params;
-      const { year, month } = req.body;
+      const { year, month, rosterStartDate, rosterEndDate } = req.body;
       const adminId = req.admin.adminId;
 
       if (!teamId || !year || !month) {
@@ -24,7 +24,7 @@ class RosterController {
         return res.status(403).json({ error: "Access denied" });
       }
 
-      const preview = await RosterService.generateRosterPreview(teamId, parseInt(year), parseInt(month));
+      const preview = await RosterService.generateRosterPreview(teamId, parseInt(year), parseInt(month),rosterStartDate, rosterEndDate);
 
       res.json({
         success: true,
@@ -108,7 +108,7 @@ static async updateMemberWeeklyOff(req, res) {
   static async confirmRoster(req, res) {
     try {
       const { teamId } = req.params;
-      const { year, month, confirmationToken } = req.body;
+      const { year, month, confirmationToken,rosterStartDate, rosterEndDate } = req.body;
       const adminId = req.admin.adminId;
 
       if (!teamId || !year || !month) {
@@ -134,7 +134,9 @@ static async updateMemberWeeklyOff(req, res) {
         teamId,
         parseInt(year),
         parseInt(month),
-        confirmationToken
+        confirmationToken,
+        rosterStartDate,
+        rosterEndDate
       );
 
       res.json({

@@ -1,5 +1,6 @@
 const admin = require("firebase-admin");
 
+
 // Try environment variable first, fallback to file
 let serviceAccount;
 

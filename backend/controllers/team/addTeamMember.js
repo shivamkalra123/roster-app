@@ -2,7 +2,7 @@
 const crypto = require("crypto");
 const emailService = require("../../services/emailService");
 const { verifyAdminAccess, getAdminDetails, getTeam, updateTeam, getUserByEmail } = require("./utils");
-
+const db = require("../../config/firebase");
 module.exports = async (req, res) => {
   try {
     const { teamId } = req.params;
