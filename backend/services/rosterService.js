@@ -279,6 +279,98 @@ static async getShiftFrequencyTable(teamId) {
     };
   }
 }
+
+static _getShiftTimingMinutes(shift) {
+  if (!shift?.startTime) return 0;
+  const [hours, minutes] = String(shift.startTime).split(":").map(Number);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return 0;
+  return hours * 60 + minutes;
+}
+
+static _getShiftRotationScore(user, shift) {
+  const shiftId = shift.id;
+  const shiftType = shift.type || shift.id;
+  const assignedMonths = user.monthsPerShift?.[shiftId] || 0;
+  const totalDays = user.totalShiftsByType?.[shiftId] || 0;
+  const currentShiftMatch = user.currentShift === shiftId ? 2 : 0;
+  const typeHistoryPenalty = user.history?.some(entry => entry.shiftType === shiftType) ? 0 : 1;
+
+  return assignedMonths * 100 + totalDays + currentShiftMatch - typeHistoryPenalty;
+}
+
+static _getRecommendedShift(users, shiftConfig, member) {
+  const sortedShifts = [...(shiftConfig.shifts || [])].sort((a, b) => {
+    const scoreA = this._getShiftRotationScore(member, a);
+    const scoreB = this._getShiftRotationScore(member, b);
+    if (scoreA !== scoreB) return scoreA - scoreB;
+
+    const timeA = this._getShiftTimingMinutes(a);
+    const timeB = this._getShiftTimingMinutes(b);
+    return timeA - timeB;
+  });
+
+  return sortedShifts[0] || null;
+}
+
+static async autoAssignMemberShifts(teamId) {
+  try {
+    const [shiftConfig, users] = await Promise.all([
+      this._getShiftConfig(teamId),
+      this._getUsersWithHistory(teamId)
+    ]);
+
+    const assignments = users.map(user => {
+      const recommendedShift = this._getRecommendedShift(users, shiftConfig, user);
+      return {
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+        currentShift: user.assignedShiftId || user.currentShift || null,
+        recommendedShiftId: recommendedShift?.id || null,
+        recommendedShiftName: recommendedShift?.name || null,
+        recommendedShiftTiming: recommendedShift
+          ? `${recommendedShift.startTime} - ${recommendedShift.endTime}`
+          : null,
+        reason: recommendedShift
+          ? `Least-used shift from past history, adjusted by timing rotation`
+          : `No shift available`
+      };
+    });
+
+    const batch = db.batch();
+    const now = new Date();
+
+    for (const assignment of assignments) {
+      const settingsRef = db
+        .collection("teams")
+        .doc(teamId)
+        .collection("memberSettings")
+        .doc(assignment.userId);
+
+      batch.set(settingsRef, {
+        assignedShiftId: assignment.recommendedShiftId,
+        autoAssignedAt: now,
+        autoAssignedReason: assignment.reason,
+        updatedAt: now
+      }, { merge: true });
+    }
+
+    await batch.commit();
+
+    return {
+      success: true,
+      assignments,
+      totalUsers: assignments.length
+    };
+  } catch (error) {
+    console.error('Error in autoAssignMemberShifts:', error);
+    return {
+      success: false,
+      error: error.message,
+      assignments: []
+    };
+  }
+}
 // Add these methods to your rosterService.js
 
 // ==================== MEMBER MANAGEMENT ====================

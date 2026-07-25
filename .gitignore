@@ -1,2 +1,11 @@
+<<<<<<< HEAD
 backend/.env
 node_modules
+=======
+.env
+.env.*
+!.env.example
+**/node_modules/
+**/dist/
+*.log
+>>>>>>> 9009a0c (WIP: save local changes)

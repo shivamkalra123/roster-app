@@ -211,6 +211,15 @@ export const updateMemberShiftAssignment = async (teamId, memberId, shiftId) => 
   }
 };
 
+export const autoAssignMemberShifts = async (teamId) => {
+  try {
+    const response = await api.post(`/roster/${teamId}/members/auto-assign-shifts`);
+    return response.data;
+  } catch (error) {
+    throw error.response?.data || { error: 'Failed to auto assign shifts' };
+  }
+};
+
 export const updateMemberWeeklyOff = async (teamId, memberId, weeklyOffDays) => {
   try {
     const response = await api.put(`/roster/${teamId}/members/${memberId}/weekly-off`, { weeklyOffDays }); // ✅ Correct endpoint

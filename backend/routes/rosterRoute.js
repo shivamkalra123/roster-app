@@ -177,6 +177,7 @@ router.put("/:teamId/members/:memberId/assign-shift", async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+router.post("/:teamId/members/auto-assign-shifts", RosterController.autoAssignMemberShifts);
 // Statistics routes
 router.get("/:teamId/statistics", RosterController.getRosterStatistics);
 

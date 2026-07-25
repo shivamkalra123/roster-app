@@ -1,45 +1,71 @@
-name: Deploy Roster App
+name: Publish Production Images
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-images
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_REGISTRY: 530558031194.dkr.ecr.ap-south-1.amazonaws.com
 
 jobs:
-  deploy:
+  publish:
+    name: Publish ${{ matrix.service }}
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-
-    env:
-      AWS_REGION: ap-south-1
-      ECR_REGISTRY: 530558031194.dkr.ecr.ap-south-1.amazonaws.com
-
+    environment: production
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [admin, backend, frontend]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Resolve source revision
+        id: source
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            echo "sha=$WORKFLOW_SHA" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
+          ref: ${{ steps.source.outputs.sha }}
 
-      - name: Login to ECR
-        uses: aws-actions/amazon-ecr-login@v2
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Build and Push Backend
-        run: |
-          docker build -t $ECR_REGISTRY/roster-backend:latest ./backend
-          docker push $ECR_REGISTRY/roster-backend:latest
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Build and Push Frontend
-        run: |
-          echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > frontend/.env
-          docker build -t $ECR_REGISTRY/roster-frontend:latest ./frontend
-          docker push $ECR_REGISTRY/roster-frontend:latest
-
-      - name: Build and Push Admin
-        run: |
-          echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > admin/.env
-          docker build -t $ECR_REGISTRY/roster-admin:latest ./admin
-          docker push $ECR_REGISTRY/roster-admin:latest
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          platforms: linux/amd64
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+          tags: |
+            ${{ env.ECR_REGISTRY }}/roster-${{ matrix.service }}:latest
+            ${{ env.ECR_REGISTRY }}/roster-${{ matrix.service }}:${{ steps.source.outputs.sha }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          provenance: true
+          sbom: true

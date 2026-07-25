@@ -1,23 +1,23 @@
 services:
-backend:
-image: 530558031194.dkr.ecr.ap-south-1.amazonaws.com/roster-backend:latest
-container_name: roster-backend
-restart: unless-stopped
-env_file:
-- backend.env
-ports:
-- "3000:3000"
+  backend:
+    image: 530558031194.dkr.ecr.ap-south-1.amazonaws.com/roster-backend:latest
+    container_name: roster-backend
+    restart: unless-stopped
+    env_file:
+      - backend.env
+    ports:
+      - "3000:3000"
 
-frontend:
-image: 530558031194.dkr.ecr.ap-south-1.amazonaws.com/roster-frontend:latest
-container_name: roster-frontend
-restart: unless-stopped
-ports:
-- "5174:80"
+  frontend:
+    image: 530558031194.dkr.ecr.ap-south-1.amazonaws.com/roster-frontend:latest
+    container_name: roster-frontend
+    restart: unless-stopped
+    ports:
+      - "5174:80"
 
-admin:
-image: 530558031194.dkr.ecr.ap-south-1.amazonaws.com/roster-admin:latest
-container_name: roster-admin
-restart: unless-stopped
-ports:
-- "5173:80"
+  admin:
+    image: 530558031194.dkr.ecr.ap-south-1.amazonaws.com/roster-admin:latest
+    container_name: roster-admin
+    restart: unless-stopped
+    ports:
+      - "5173:80"

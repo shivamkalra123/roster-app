@@ -4,75 +4,79 @@ import React, { useState, useEffect } from 'react';
 import { User, Calendar, Clock, History, LogOut, Download } from 'lucide-react';
 import { memberService } from '../../services/memberService';
 import toast from 'react-hot-toast';
-import RosterCalendar from '../../../../shared/components/RosterCalendar';
+import RosterViewer from '../../../../shared/components/RosterViewer';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MemberDashboard = ({ onLogout }) => {
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [roster, setRoster] = useState(null);
-
-  // FULL TEAM SCHEDULE ARRAY
   const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [schedule, setSchedule] = useState([]);
 
-  const [selectedYear, setSelectedYear] = useState(
-    new Date().getFullYear()
-  );
+  // Initialize with current date
+  const currentDate = new Date();
+  const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth() + 1);
 
-  const [selectedMonth, setSelectedMonth] = useState(
-    new Date().getMonth() + 1
-  );
+  const [activeTab, setActiveTab] = useState('roster');
+  const [profile] = useState(null);
+  const [history] = useState([]);
 
   useEffect(() => {
     console.log('AUTH USER:', user);
 
-    if (!user) return;
-
-    const teamId = user?.teamId;
-
-    if (!teamId) {
-      console.log('No team found');
+    // Check if user exists and has teamId
+    if (!user || !user.teamId) {
+      console.log('No team found or user not authenticated');
       return;
     }
 
-    console.log('Team found:', teamId);
+    // Make sure we have valid year and month
+    if (!selectedYear || !selectedMonth) {
+      console.log('Invalid year or month:', { selectedYear, selectedMonth });
+      return;
+    }
+
+    console.log('Team found:', user.teamId);
+    console.log('Loading roster for:', { 
+      teamId: user.teamId, 
+      year: selectedYear, 
+      month: selectedMonth 
+    });
 
     loadRoster();
 
-  }, [selectedYear, selectedMonth, user]);
+  }, [selectedYear, selectedMonth, user]); // Keep all dependencies
 
   const loadRoster = async () => {
     try {
       setLoading(true);
-
       const teamId = user?.teamId;
 
-      console.log(
-        `Fetching roster for team: ${teamId}, ${selectedYear}-${selectedMonth}`
-      );
+      // Double-check values before making the call
+      if (!teamId || !selectedYear || !selectedMonth) {
+        console.error('Missing required values:', { teamId, selectedYear, selectedMonth });
+        toast.error('Missing required information to load roster');
+        return;
+      }
 
-      const result = await getTeamRoster(
+      console.log('Calling getMyRoster with:', {
+        teamId,
+        selectedYear,
+        selectedMonth,
+      });
+
+      const result = await memberService.getMyRoster(
         teamId,
         selectedYear,
         selectedMonth
       );
 
       console.log('FULL API RESULT:', result);
-      console.log('ROSTER:', result?.roster);
-
-      console.log(
-        'USER SCHEDULES:',
-        result?.roster?.userSchedules
-      );
 
       if (result?.success) {
-        setRoster(result.roster);
-
-        // STORE FULL TEAM
-        setSchedule(
-          result?.roster?.userSchedules || []
-        );
+        setRoster(result);
       }
 
     } catch (error) {
@@ -83,6 +87,7 @@ const MemberDashboard = ({ onLogout }) => {
 
       toast.error(
         error?.response?.data?.error ||
+        error?.message ||
         'Failed to get roster'
       );
 
@@ -90,65 +95,6 @@ const MemberDashboard = ({ onLogout }) => {
       setLoading(false);
     }
   };
-
-  const getShiftDisplayName = (shiftId) => {
-
-  if (shiftId === 'LEAVE') {
-    return '🏖️ Leave';
-  }
-  
-
-  if (shiftId === 'HOLIDAY') {
-    return '🎉 Holiday';
-  }
-
-  if (shiftId === 'OFF') {
-    return 'OFF';
-  }
-
-  const shift =
-    roster?.shiftConfig?.shifts?.find(
-      (s) => s.id === shiftId
-    );
-
-  return (
-    shift?.name ||
-    shiftId ||
-    'OFF'
-  );
-};
-
-  const getShiftColor = (shiftId) => {
-    const shift = roster?.shiftConfig?.shifts?.find(
-      (s) => s.id === shiftId
-    );
-
-    if (shift?.color) {
-      return {
-        backgroundColor: shift.color,
-        color: '#fff'
-      };
-    }
-
-    return {
-      backgroundColor: '#e5e7eb',
-      color: '#374151'
-    };
-  };
-
-  const getDaysInMonth = (year, month) => {
-    return new Date(year, month, 0).getDate();
-  };
-
-  const daysInMonth = getDaysInMonth(
-    selectedYear,
-    selectedMonth
-  );
-
-  const days = Array.from(
-    { length: daysInMonth },
-    (_, i) => i + 1
-  );
 
   const monthNames = [
     'January',
@@ -183,54 +129,6 @@ const MemberDashboard = ({ onLogout }) => {
     }
   };
 
-  const downloadRoster = () => {
-    const csvRows = [];
-
-    // Header row
-    csvRows.push([
-      'Employee',
-      ...days.map((d) => `Day ${d}`)
-    ]);
-
-    // Data rows
-    schedule.forEach((member) => {
-      const row = [
-        member.name
-      ];
-
-      days.forEach((day) => {
-        row.push(
-          member.schedule?.[day] || 'OFF'
-        );
-      });
-
-      csvRows.push(row);
-    });
-
-    const csvContent = csvRows
-      .map((row) => row.join(','))
-      .join('\n');
-
-    const blob = new Blob(
-      [csvContent],
-      { type: 'text/csv' }
-    );
-
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-
-    a.href = url;
-
-    a.download = `team_roster_${selectedYear}_${selectedMonth}.csv`;
-
-    a.click();
-
-    URL.revokeObjectURL(url);
-
-    toast.success('Roster downloaded!');
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex justify-center items-center">
@@ -241,29 +139,23 @@ const MemberDashboard = ({ onLogout }) => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-
           <div className="flex justify-between items-center">
-
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-blue-600" />
-
               <h1 className="text-2xl font-bold text-gray-900">
                 Team Dashboard
               </h1>
             </div>
 
             <div className="flex items-center gap-4">
-
               {user && (
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900">
                     {user.name}
                   </p>
-
                   <p className="text-xs text-gray-500">
                     {user.email}
                   </p>
@@ -277,55 +169,47 @@ const MemberDashboard = ({ onLogout }) => {
                 <LogOut className="h-4 w-4" />
                 Logout
               </button>
-
             </div>
           </div>
         </div>
       </header>
 
+      {/* Month Navigation */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
+        <div className="flex items-center justify-between bg-white p-4 rounded-lg shadow">
+          <button
+            onClick={goToPreviousMonth}
+            className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+          >
+            ← Previous
+          </button>
+          <h2 className="text-xl font-bold text-gray-800">
+            {monthNames[selectedMonth - 1]} {selectedYear}
+          </h2>
+          <button
+            onClick={goToNextMonth}
+            className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+
       {/* Main */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Roster Tab */}
         {activeTab === 'roster' && roster && (
-          <RosterCalendar
-            layout="member"
-            title={`My Roster - ${monthNames[selectedMonth - 1]} ${selectedYear}`}
-            selectedYear={selectedYear}
-            selectedMonth={selectedMonth}
-            days={days}
-            schedule={schedule}
+          <RosterViewer
+            roster={roster}
             shiftConfig={roster?.shiftConfig}
-            summaryText={`${roster?.member?.totalDaysWorked || 0} days worked this month`}
-            summaryCards={[
-              {
-                label: 'Days Worked',
-                value: roster?.member?.totalDaysWorked || 0,
-                className: 'bg-blue-50',
-              },
-              {
-                label: 'Current Shift',
-                value: roster?.member?.assignedShift || 'N/A',
-                className: 'bg-green-50',
-              },
-              {
-                label: 'Shift Types',
-                value: Object.keys(roster?.member?.shiftCounts || {}).length || 0,
-                className: 'bg-purple-50',
-              },
-              {
-                label: 'Total Shifts',
-                value: Object.values(roster?.member?.shiftCounts || {}).reduce((a, b) => a + b, 0) || 0,
-                className: 'bg-orange-50',
-              },
-            ]}
-            onPreviousMonth={goToPreviousMonth}
-            onNextMonth={goToNextMonth}
-            onDownload={downloadRoster}
-            showDownloadButton
-            showNavigation
-            showSummaryCards
-            showLegend
+            showDownloadButton={false}
           />
+        )}
+
+        {activeTab === 'roster' && !roster && !loading && (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <p className="text-gray-500">No roster data available for this month.</p>
+          </div>
         )}
 
         {/* Profile Tab */}

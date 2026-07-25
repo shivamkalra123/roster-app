@@ -1,6 +1,6 @@
 // frontend/src/components/Team/TeamSettings.jsx
 import React, { useState, useEffect } from 'react';
-import { getShiftConfig, updateShiftConfig, getRosterStatistics, getMembers, updateMemberWeeklyOff, updateMemberShiftAssignment } from '../../services/rosterService';
+import { getShiftConfig, updateShiftConfig, getRosterStatistics, getMembers, updateMemberWeeklyOff, updateMemberShiftAssignment, autoAssignMemberShifts } from '../../services/rosterService';
 import { Save, Plus, Trash2, Clock, Users, Calendar, AlertCircle, User, CalendarDays } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -92,6 +92,7 @@ const TeamSettings = ({ teamId }) => {
   const [members, setMembers] = useState([]);
   const [pendingChanges, setPendingChanges] = useState({});
   const [activeSection, setActiveSection] = useState('shifts');
+  const [autoAssigning, setAutoAssigning] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -161,6 +162,25 @@ const TeamSettings = ({ teamId }) => {
       toast.error('Failed to save weekly off days');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleAutoAssignShifts = async () => {
+    if (!window.confirm('Auto-assign shifts for all members based on past history and current timing rotation?')) {
+      return;
+    }
+
+    setAutoAssigning(true);
+    try {
+      const result = await autoAssignMemberShifts(teamId);
+      if (result.success) {
+        toast.success(`Auto-assigned shifts for ${result.totalUsers} member(s)`);
+        await loadSettings();
+      }
+    } catch (error) {
+      toast.error(error.error || 'Failed to auto assign shifts');
+    } finally {
+      setAutoAssigning(false);
     }
   };
 
@@ -430,8 +450,25 @@ const TeamSettings = ({ teamId }) => {
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Assign Shifts to Members</h3>
           <p className="text-sm text-gray-500 mb-4">
-            Assign a specific shift to each member. The system will use these timings when generating the roster.
+            Assign a specific shift to each member, or let the system auto-assign based on past history and shift timing rotation.
           </p>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleAutoAssignShifts}
+              disabled={autoAssigning || !members.length}
+              className={`px-4 py-2 rounded-lg transition flex items-center gap-2 ${
+                autoAssigning || !members.length
+                  ? 'bg-gray-400 cursor-not-allowed text-white'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+            >
+              <Users className="h-4 w-4" />
+              {autoAssigning ? 'Auto-assigning...' : 'Auto Assign Shifts'}
+            </button>
+            <span className="text-sm text-gray-500">
+              Uses previous shift history, current assignment, and shift start times.
+            </span>
+          </div>
           
           <div className="space-y-4">
             {members.map((member) => (

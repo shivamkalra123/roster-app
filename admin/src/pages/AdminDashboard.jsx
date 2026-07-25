@@ -1,6 +1,8 @@
 // frontend/src/components/AdminDashboard.jsx
 import { useEffect, useState } from "react";
-import { rosterAPI, configAPI, memberAPI } from "../services/api";
+import api from "../services/api";
+import { getShifts, previewRoster, confirmRoster } from "../services/rosterService";
+import { memberService } from "../services/memberService";
 
 const shiftLabels = {
   morning: "🌅 Morning",
@@ -28,8 +30,8 @@ const AdminDashboard = ({ teamId }) => {
 
   const loadShifts = async () => {
     try {
-      const res = await configAPI.getShifts(teamId);
-      setShifts(res.data.shifts || []);
+      const data = await getShifts(teamId);
+      setShifts(data.shifts || []);
     } catch (error) {
       console.error("Failed to load shifts:", error);
     }
@@ -38,11 +40,11 @@ const AdminDashboard = ({ teamId }) => {
   const loadTeamData = async () => {
     try {
       setLoading(true);
-      const res = await memberAPI.getMembers(teamId);
+      const data = await memberService.getMembers(teamId);
       
       // Separate members and pending invites
-      const allMembers = res.data.members || [];
-      const pending = res.data.pendingInvites || [];
+      const allMembers = data.members || [];
+      const pending = data.pendingInvites || [];
       
       setMembers(allMembers);
       setPendingInvites(pending);
@@ -67,12 +69,8 @@ const AdminDashboard = ({ teamId }) => {
     for (const adminId of adminIds) {
       if (!admins[adminId]) {
         try {
-          const response = await fetch(`http://13.232.176.65:3000/api/admins/${adminId}`, {
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('token')}`
-            }
-          });
-          const data = await response.json();
+          const response = await api.get(`/admins/${adminId}`);
+          const data = response.data;
           if (data.success) {
             setAdmins(prev => ({
               ...prev,
@@ -99,15 +97,7 @@ const AdminDashboard = ({ teamId }) => {
   // Resend invitation
   const resendInvitation = async (email) => {
     try {
-      const response = await fetch(`http://13.232.176.65:3000/api/teams/${teamId}/resend-invite`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ email })
-      });
-      const data = await response.json();
+      const data = await memberService.resendInvite(teamId, email);
       if (data.success) {
         alert(`✅ Invitation resent to ${email}`);
         loadTeamData(); // Refresh
@@ -125,15 +115,7 @@ const AdminDashboard = ({ teamId }) => {
     if (!window.confirm(`Cancel invitation for ${email}?`)) return;
     
     try {
-      const response = await fetch(`http://13.232.176.65:3000/api/teams/${teamId}/cancel-invite`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ email })
-      });
-      const data = await response.json();
+      const data = await memberService.cancelInvite(teamId, email);
       if (data.success) {
         alert(`✅ Invitation cancelled for ${email}`);
         loadTeamData(); // Refresh
@@ -149,8 +131,8 @@ const AdminDashboard = ({ teamId }) => {
   // Roster Actions
   const preview = async () => {
     try {
-      const res = await rosterAPI.previewRoster(teamId, year, month);
-      setRoster(res.data.roster);
+      const data = await previewRoster(teamId, year, month);
+      setRoster(data.roster);
     } catch (error) {
       console.error("Preview failed:", error);
       alert("Failed to preview roster");
@@ -159,7 +141,7 @@ const AdminDashboard = ({ teamId }) => {
 
   const confirm = async () => {
     try {
-      await rosterAPI.confirmRoster(teamId, year, month);
+      await confirmRoster(teamId, year, month);
       alert("✅ Roster confirmed and saved!");
     } catch (error) {
       console.error("Confirm failed:", error);
@@ -169,7 +151,7 @@ const AdminDashboard = ({ teamId }) => {
 
   const publish = async () => {
     try {
-      await rosterAPI.publish(teamId, year, month);
+      await confirmRoster(teamId, year, month);
       alert("🚀 Roster published!");
     } catch (error) {
       console.error("Publish failed:", error);
