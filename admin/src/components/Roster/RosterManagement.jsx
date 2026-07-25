@@ -32,6 +32,7 @@ import ShiftSwapModal from './ShiftSwapModal';
 import RosterCalendar from '../../../../shared/components/RosterCalendar';
 import LeaveRequests from '../Leave/LeaveRequests';
 import toast from 'react-hot-toast';
+import RosterViewer from '../../../../shared/components/RosterViewer';
 
 const RosterManagement = ({ teamId }) => {
   const [activeTab, setActiveTab] = useState('roster'); // 'roster', 'leaveRequests', 'settings'
@@ -72,6 +73,12 @@ const [rosterEndDate, setRosterEndDate] = useState(defaults.end);
   const [shiftConfig, setShiftConfig] = useState(null);
   const [editingConfig, setEditingConfig] = useState(null);
 
+
+
+
+
+
+
   useEffect(() => {
     loadShiftConfig();
   }, [teamId]);
@@ -107,7 +114,10 @@ const [rosterEndDate, setRosterEndDate] = useState(defaults.end);
   };
 
   const processRosterData = (data) => {
-    const roster = data.roster || {};
+    const roster =
+  data.roster?.roster ??
+  data.roster ??
+  {};
     const days = Object.keys(roster).sort(
   (a, b) => new Date(a) - new Date(b)
 );
@@ -208,6 +218,15 @@ if (start > end) {
   const loadExistingRoster = async () => {
     try {
       const result = await getRoster(teamId, selectedYear, selectedMonth);
+
+      console.log("Loaded roster:", result);
+
+      setRosterData(result);
+      processRosterData(result);
+      setShowPreview(true);
+      
+
+   
       if (result.success) {
         setRosterData(result);
         processRosterData(result);
@@ -562,26 +581,21 @@ const days = getRosterDays();
       </div>
 
       {/* Calendar Roster View */}
-      {showPreview && rosterArray.length > 0 && (
-        
-        <RosterCalendar
-          layout="admin"
-          title={`${new Date(selectedYear, selectedMonth - 1, 1).toLocaleString(
-  "default",
-  { month: "long" }
-)} ${selectedYear} Roster`}
-          subtitle={`${membersList.length} team members • ${rosterStartDate} → ${rosterEndDate}`}
-          selectedYear={selectedYear}
-          selectedMonth={selectedMonth}
-          days={days}
-          rows={rosterArray}
-          shiftConfig={shiftConfig}
-          summaryText={rosterData?.summary ? `🟢 Weekend: ${rosterData.summary.weekendWorkers} workers • 🔵 Weekday: ${rosterData.summary.weekdayWorkers} workers` : ''}
-          onCellContextMenu={handleRightClick}
-          showLegend
-          legendItems={[{ label: 'Right-click to swap', className: 'bg-blue-100' }]}
-        />
-      )}
+      {showPreview && rosterData && (
+
+  <RosterViewer
+
+    roster={rosterData}
+
+    rows={rosterArray}
+
+    shiftConfig={shiftConfig}
+
+    showDownloadButton={false}
+
+  />
+
+)}
 
       {/* Context Menu */}
       {contextMenu.show && (

@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://roster-app-povc.onrender.com",
+        target: "https://ubiquitous-space-yodel-75j5qvq7p6xfp96-3000.app.github.dev",
         changeOrigin: true,
       },
     },

@@ -15,12 +15,7 @@ const DEFAULT_SHIFT_COLORS = {
   OFF: 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
-const DEFAULT_SHIFT_ICONS = {
-  morning: '🌅',
-  evening: '🌇',
-  night: '🌙',
-  OFF: '❌',
-};
+
 
 const getShiftColorClasses = (shiftId, shiftConfig) => {
   const shift = shiftConfig?.shifts?.find((item) => item.id === shiftId);
@@ -35,7 +30,7 @@ const getShiftColorClasses = (shiftId, shiftConfig) => {
   return { className, style: {} };
 };
 
-const getShiftIcon = (shiftId) => DEFAULT_SHIFT_ICONS[shiftId] || '🕒';
+
 
 const getShiftDisplayName = (shiftId, shiftConfig) => {
   const shift = shiftConfig?.shifts?.find((item) => item.id === shiftId);
@@ -185,7 +180,7 @@ const RosterCalendar = ({
               const shiftId = schedule?.[key] || 'OFF';
               const shiftName = getShiftDisplayName(shiftId, shiftConfig);
               const shiftColor = getShiftColorClasses(shiftId, shiftConfig);
-              const shiftIcon = getShiftIcon(shiftId);
+              
               const timings = shiftId !== 'OFF' ? getShiftTimings(shiftId, shiftConfig) : '';
               const weekend = isWeekend(dayObj.date);
 
@@ -273,7 +268,7 @@ const RosterCalendar = ({
                   {days.map((dayObj) => {
                     const shift = row.schedule?.[dayObj.key] || 'OFF';
                     const shiftColor = getShiftColorClasses(shift, shiftConfig);
-                    const shiftIcon = getShiftIcon(shift);
+                    
                     const weekendDay = isWeekend(dayObj.date);
                     return (
                       <td
@@ -285,7 +280,7 @@ const RosterCalendar = ({
                           className={`inline-flex items-center justify-center px-2 py-1 text-xs font-semibold rounded-full ${shiftColor.className} border min-w-[60px]`}
                           style={shiftColor.style}
                         >
-                          <span className="mr-1">{shiftIcon}</span>
+                          
                           {shift !== 'OFF' ? shift.charAt(0).toUpperCase() + shift.slice(1) : ''}
                         </span>
                         {renderCellExtra?.(row, dayObj)}

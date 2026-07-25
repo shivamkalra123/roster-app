@@ -172,7 +172,7 @@ static async updateMemberWeeklyOff(req, res) {
 
       res.json({
         success: true,
-        roster
+        ...roster
       });
 
     } catch (error) {
