@@ -13,19 +13,28 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Toaster po sition="top-right" />
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" />} />
-          <Route path="/login" element={<UserLogin />} />
-          <Route path="/accept-invite" element={<AcceptInvite />} />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute userType="member">
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+        <div className="min-h-screen bg-gray-100 flex flex-col">
+          <main className="flex-1">
+            <Routes>
+              <Route path="/" element={<Navigate to="/login" />} />
+              <Route path="/login" element={<UserLogin />} />
+              <Route path="/accept-invite" element={<AcceptInvite />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute userType="member">
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </main>
+          <footer className="border-t border-gray-200 bg-white px-4 py-4 text-center text-sm text-gray-500">
+            Fair shifts, unfair sleep schedules <br/>
+            <br/>
+            Made With Love by Shivam Kalra. 
+          </footer>
+        </div>
       </AuthProvider>
     </BrowserRouter>
   );

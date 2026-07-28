@@ -28,9 +28,9 @@ const AppContent = () => {
   const { admin } = useAuth();
   
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       {admin && <Navbar />}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="w-full flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Routes>
           {/* Remove this route - it's now in frontend */}
           {/* <Route path="/accept-invite" element={<AcceptInvite />} /> */}
@@ -62,7 +62,12 @@ const AppContent = () => {
           />
           <Route path="/" element={<Navigate to="/dashboard" />} />
         </Routes>
-      </div>
+      </main>
+      <footer className="border-t border-gray-200 bg-white px-4 py-4 text-center text-sm text-gray-500">
+        Fair shifts, unfair sleep schedules <br/>
+            <br/>
+            Made With Love by Shivam Kalra.
+      </footer>
       <Toaster position="top-right" />
     </div>
   );

@@ -653,6 +653,38 @@ static async getTeamRoster(req, res) {
     });
   }
 }
+  // ==================== AUTO ASSIGN MEMBER SHIFTS ====================
+  static async autoAssignMemberShifts(req, res) {
+    try {
+      const { teamId } = req.params;
+      const adminId = req.admin.adminId;
+
+      const adminDoc = await db.collection("admins").doc(adminId).get();
+      const adminTeams = adminDoc.data()?.teams || [];
+
+      if (!adminTeams.includes(teamId)) {
+        return res.status(403).json({
+          error: "Access denied"
+        });
+      }
+
+      if (typeof RosterService.autoAssignMemberShifts !== "function") {
+        return res.status(501).json({
+          error: "RosterService.autoAssignMemberShifts() is not implemented"
+        });
+      }
+
+      const result = await RosterService.autoAssignMemberShifts(teamId);
+
+      return res.json(result);
+    } catch (error) {
+      console.error("Auto Assign Shift Error:", error);
+      return res.status(500).json({
+        error: error.message
+      });
+    }
+  }
+
   // ==================== GET MEMBER ROSTER (for members) ====================
   static async getMemberRoster(req, res) {
     try {

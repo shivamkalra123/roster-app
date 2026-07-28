@@ -15,6 +15,17 @@ const DEFAULT_SHIFT_COLORS = {
   OFF: 'bg-gray-100 text-gray-500 border-gray-200',
 };
 
+const getShiftIcon = (shiftId) => {
+  const icons = {
+    morning: '🌅',
+    evening: '🌇',
+    night: '🌙',
+    off: '❌',
+  };
+
+  return icons[(shiftId || '').toLowerCase()] || '🕒';
+};
+
 
 
 const getShiftColorClasses = (shiftId, shiftConfig) => {
@@ -26,7 +37,8 @@ const getShiftColorClasses = (shiftId, shiftConfig) => {
     };
   }
 
-  const className = DEFAULT_SHIFT_COLORS[shiftId] || 'bg-blue-100 text-blue-800 border-blue-200';
+  const normalizedShiftId = (shiftId || '').toLowerCase();
+  const className = DEFAULT_SHIFT_COLORS[normalizedShiftId] || DEFAULT_SHIFT_COLORS[shiftId] || 'bg-blue-100 text-blue-800 border-blue-200';
   return { className, style: {} };
 };
 
@@ -174,10 +186,11 @@ const RosterCalendar = ({
 
             {days.map((dayObj) => {
               const { key, day, month, year } = dayObj;
-                const weekday = getDayOfWeek(dayObj.date);
+              const weekday = getDayOfWeek(dayObj.date);
 
-            const weekendDay = isWeekend(dayObj.date);
+              const weekendDay = isWeekend(dayObj.date);
               const shiftId = schedule?.[key] || 'OFF';
+              const shiftIcon = getShiftIcon(shiftId);
               const shiftName = getShiftDisplayName(shiftId, shiftConfig);
               const shiftColor = getShiftColorClasses(shiftId, shiftConfig);
               

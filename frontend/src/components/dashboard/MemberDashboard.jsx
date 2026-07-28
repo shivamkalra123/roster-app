@@ -12,6 +12,56 @@ const MemberDashboard = ({ onLogout }) => {
 
   const [loading, setLoading] = useState(false);
   const [roster, setRoster] = useState(null);
+  const [rosterArray, setRosterArray] = useState([]);
+  // Helper: process roster data for table/grid
+  const processRosterData = (data) => {
+    const roster = data.roster?.roster ?? data.roster ?? {};
+    const days = Object.keys(roster).sort((a, b) => new Date(a) - new Date(b));
+
+    const memberMap = new Map();
+    days.forEach(day => {
+      (roster[day] || []).forEach(assignment => {
+        if (!memberMap.has(assignment.userId)) {
+          memberMap.set(assignment.userId, {
+            userId: assignment.userId,
+            name: assignment.name,
+            isWeekendWorker: assignment.isWeekendWorker || false,
+          });
+        }
+      });
+    });
+
+    const members = Array.from(memberMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    const rosterGrid = members.map(member => {
+      const memberSchedule = {};
+      const memberShiftDetails = {};
+
+      days.forEach(day => {
+        const assignment = (roster[day] || []).find(a => a.userId === member.userId);
+        memberSchedule[day] = assignment?.shift || 'OFF';
+        memberShiftDetails[day] = assignment || null;
+      });
+
+      const shiftCounts = {};
+      Object.values(memberSchedule).forEach(shift => {
+        if (shift !== 'OFF') {
+          shiftCounts[shift] = (shiftCounts[shift] || 0) + 1;
+        }
+      });
+
+      return {
+        memberId: member.userId,
+        memberName: member.name,
+        schedule: memberSchedule,
+        shiftDetails: memberShiftDetails,
+        shiftCounts,
+        isWeekendWorker: member.isWeekendWorker,
+      };
+    });
+
+    setRosterArray(rosterGrid);
+  };
   const [showLeaveModal, setShowLeaveModal] = useState(false);
 
   // Initialize with current date
@@ -77,6 +127,7 @@ const MemberDashboard = ({ onLogout }) => {
 
       if (result?.success) {
         setRoster(result);
+        processRosterData(result);
       }
 
     } catch (error) {
@@ -142,7 +193,7 @@ const MemberDashboard = ({ onLogout }) => {
       {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between">
             <div className="flex items-center gap-3">
               <Clock className="h-8 w-8 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-900">
@@ -199,11 +250,14 @@ const MemberDashboard = ({ onLogout }) => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Roster Tab */}
         {activeTab === 'roster' && roster && (
-          <RosterViewer
-            roster={roster}
-            shiftConfig={roster?.shiftConfig}
-            showDownloadButton={false}
-          />
+          <div className="w-full">
+            <RosterViewer
+              roster={roster}
+              rows={rosterArray}
+              shiftConfig={roster?.shiftConfig}
+              showDownloadButton
+            />
+          </div>
         )}
 
         {activeTab === 'roster' && !roster && !loading && (

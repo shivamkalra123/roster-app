@@ -5,30 +5,7 @@ import { Save, Plus, Trash2, Clock, Users, Calendar, AlertCircle, User, Calendar
 import toast from 'react-hot-toast';
 
 // Member Shift Assignment Component
-const MemberShiftAssignment = ({ teamId, member, availableShifts, onUpdate }) => {
-  const [selectedShiftId, setSelectedShiftId] = useState(member.assignedShiftId || '');
-  const [saving, setSaving] = useState(false);
-
-  const handleSave = async () => {
-    if (!selectedShiftId) {
-      toast.error('Please select a shift');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const result = await updateMemberShiftAssignment(teamId, member.userId, selectedShiftId);
-      if (result.success) {
-        toast.success(`Shift assigned to ${member.name}`);
-        onUpdate();
-      }
-    } catch (error) {
-      toast.error(error.error || 'Failed to assign shift');
-    } finally {
-      setSaving(false);
-    }
-  };
-
+const MemberShiftAssignment = ({ member, availableShifts, selectedShiftId, onChange, hasChanges, disabled }) => {
   const selectedShift = availableShifts.find(s => s.id === selectedShiftId);
 
   return (
@@ -46,14 +23,20 @@ const MemberShiftAssignment = ({ teamId, member, availableShifts, onUpdate }) =>
                 Current: {member.assignedShiftName}
               </span>
             )}
+            {hasChanges && (
+              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full">
+                Unsaved
+              </span>
+            )}
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
           <select
             value={selectedShiftId}
-            onChange={(e) => setSelectedShiftId(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+            onChange={(e) => onChange(e.target.value)}
+            disabled={disabled}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 min-w-[200px] disabled:bg-gray-100 disabled:cursor-not-allowed"
           >
             <option value="">-- Select Shift --</option>
             {availableShifts.map((shift) => (
@@ -63,14 +46,6 @@ const MemberShiftAssignment = ({ teamId, member, availableShifts, onUpdate }) =>
             ))}
           </select>
 
-          <button
-            onClick={handleSave}
-            disabled={saving || !selectedShiftId}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" />
-            {saving ? 'Saving...' : 'Assign Shift'}
-          </button>
         </div>
       </div>
 
@@ -91,6 +66,7 @@ const TeamSettings = ({ teamId }) => {
   const [statistics, setStatistics] = useState(null);
   const [members, setMembers] = useState([]);
   const [pendingChanges, setPendingChanges] = useState({});
+  const [pendingShiftAssignments, setPendingShiftAssignments] = useState({});
   const [activeSection, setActiveSection] = useState('shifts');
   const [autoAssigning, setAutoAssigning] = useState(false);
 
@@ -115,6 +91,7 @@ const TeamSettings = ({ teamId }) => {
       if (membersResult.success) {
         setMembers(membersResult.members);
         setPendingChanges({});
+        setPendingShiftAssignments({});
       }
     } catch (error) {
       toast.error('Failed to load settings');
@@ -160,6 +137,68 @@ const TeamSettings = ({ teamId }) => {
       toast.success('Weekly off days saved successfully');
     } catch (error) {
       toast.error('Failed to save weekly off days');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getCurrentShiftAssignment = (memberId) => {
+    if (pendingShiftAssignments[memberId] !== undefined) {
+      return pendingShiftAssignments[memberId];
+    }
+    return members.find((member) => member.userId === memberId)?.assignedShiftId || '';
+  };
+
+  const updateMemberShiftSelection = (memberId, shiftId) => {
+    const member = members.find((item) => item.userId === memberId);
+
+    setPendingShiftAssignments((currentAssignments) => {
+      if (shiftId === (member?.assignedShiftId || '')) {
+        const { [memberId]: removedAssignment, ...remainingAssignments } = currentAssignments;
+        return remainingAssignments;
+      }
+
+      return { ...currentAssignments, [memberId]: shiftId };
+    });
+  };
+
+  const handleSaveShiftAssignments = async () => {
+    const assignments = Object.entries(pendingShiftAssignments);
+
+    if (assignments.length === 0) {
+      toast.info('No shift changes to save');
+      return;
+    }
+
+    if (assignments.some(([, shiftId]) => !shiftId)) {
+      toast.error('Please select a shift for every changed member');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await Promise.all(
+        assignments.map(([memberId, shiftId]) =>
+          updateMemberShiftAssignment(teamId, memberId, shiftId)
+        )
+      );
+
+      setMembers((currentMembers) =>
+        currentMembers.map((member) => {
+          const shiftId = pendingShiftAssignments[member.userId];
+          if (shiftId === undefined) return member;
+
+          return {
+            ...member,
+            assignedShiftId: shiftId,
+            assignedShiftName: shiftConfig?.shifts.find((shift) => shift.id === shiftId)?.name || shiftId,
+          };
+        })
+      );
+      setPendingShiftAssignments({});
+      toast.success(`Saved shifts for ${assignments.length} member(s)`);
+    } catch (error) {
+      toast.error(error.error || 'Failed to save shift assignments');
     } finally {
       setSaving(false);
     }
@@ -448,9 +487,16 @@ const TeamSettings = ({ teamId }) => {
       {/* Assign Shifts Section */}
       {activeSection === 'shiftAssignment' && (
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Assign Shifts to Members</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 className="text-lg font-semibold text-gray-800">Assign Shifts to Members</h3>
+            {Object.keys(pendingShiftAssignments).length > 0 && (
+              <span className="text-sm text-yellow-700 bg-yellow-50 px-2 py-1 rounded">
+                {Object.keys(pendingShiftAssignments).length} member(s) have unsaved changes
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mb-4">
-            Assign a specific shift to each member, or let the system auto-assign based on past history and shift timing rotation.
+            Choose shifts for members, then save all changes together. Or let the system auto-assign based on past history and shift timing rotation.
           </p>
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <button
@@ -474,12 +520,38 @@ const TeamSettings = ({ teamId }) => {
             {members.map((member) => (
               <MemberShiftAssignment
                 key={member.userId}
-                teamId={teamId}
                 member={member}
                 availableShifts={shiftConfig?.shifts || []}
-                onUpdate={loadSettings}
+                selectedShiftId={getCurrentShiftAssignment(member.userId)}
+                onChange={(shiftId) => updateMemberShiftSelection(member.userId, shiftId)}
+                hasChanges={pendingShiftAssignments[member.userId] !== undefined}
+                disabled={saving}
               />
             ))}
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3">
+            {Object.keys(pendingShiftAssignments).length > 0 && (
+              <button
+                onClick={() => setPendingShiftAssignments({})}
+                disabled={saving}
+                className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition disabled:opacity-50"
+              >
+                Cancel Changes
+              </button>
+            )}
+            <button
+              onClick={handleSaveShiftAssignments}
+              disabled={saving || Object.keys(pendingShiftAssignments).length === 0}
+              className={`px-6 py-2 rounded-lg transition flex items-center gap-2 ${
+                saving || Object.keys(pendingShiftAssignments).length === 0
+                  ? 'bg-gray-400 cursor-not-allowed text-white'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              <Save className="h-4 w-4" />
+              {saving ? 'Saving...' : 'Save Shifts'}
+            </button>
           </div>
         </div>
       )}

@@ -68,9 +68,7 @@ router.post('/:teamId/:year/:month/:day/swap', async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
-router.get("/:teamId/rosters/:year/:month", RosterController.getTeamRoster);
 
-router.get("/:teamId/:year/:month", RosterController.getRoster);
 // Get swap history
 router.get('/:teamId/:year/:month/swap-history', async (req, res) => {
   try {
@@ -162,7 +160,6 @@ router.put("/:teamId/members/:memberId/weekly-off", async (req, res) => {
   }
 });
 // Add these routes to rosterRoute.js
-router.get("/:teamId/rosters/:year/:month", RosterController.getTeamRoster);
 
 // Update member's shift assignment
 router.put("/:teamId/members/:memberId/assign-shift", async (req, res) => {

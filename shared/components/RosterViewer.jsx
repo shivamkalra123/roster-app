@@ -3,6 +3,13 @@
 import React, { useMemo } from "react";
 import RosterCalendar from "./RosterCalendar";
 
+const escapeCsvValue = (value) => {
+  const stringValue = String(value ?? "");
+  return /[",\n\r]/.test(stringValue)
+    ? `"${stringValue.replace(/"/g, '""')}"`
+    : stringValue;
+};
+
 const RosterViewer = ({
   roster,
   rows = [],
@@ -11,7 +18,7 @@ const RosterViewer = ({
   onDownload,
   onCellContextMenu,
   renderCellExtra,
-  showDownloadButton = false,
+  showDownloadButton = true,
   showSummaryCards = true,
   showLegend = true,
   className = "",
@@ -343,6 +350,52 @@ const RosterViewer = ({
     rosterDocument.rosterEndDate
   )}`;
 
+  const downloadRoster = () => {
+    const shiftNames = new Map(
+      (shiftConfig || rosterDocument.shiftConfig)?.shifts?.map((shift) => [
+        shift.id,
+        shift.name,
+      ]) || []
+    );
+    const headers = [
+      "Team Member",
+      ...days.map((dayObj) =>
+        dayObj.date.toLocaleDateString("default", {
+          day: "numeric",
+          month: "short",
+          weekday: "short",
+        })
+      ),
+    ];
+    const csvRows = displayRows.map((row) => [
+      row.memberName || row.label || "Unknown Member",
+      ...days.map((dayObj) => {
+        const shift = row.schedule?.[dayObj.key] || "OFF";
+        return shift === "OFF" ? "" : shiftNames.get(shift) || shift;
+      }),
+    ]);
+    const emptyRow = Array(headers.length).fill("");
+    const csv = [
+      [displayTitle, ...emptyRow.slice(1)],
+      [subtitle, ...emptyRow.slice(1)],
+      emptyRow,
+      headers,
+      ...csvRows,
+    ]
+      .map((row) => row.map(escapeCsvValue).join(","))
+      .join("\r\n");
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `${displayTitle.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "roster"}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <RosterCalendar
       layout="team"
@@ -366,7 +419,7 @@ const RosterViewer = ({
       showSummaryCards={showSummaryCards}
       showLegend={showLegend}
       showDownloadButton={showDownloadButton}
-      onDownload={onDownload}
+      onDownload={onDownload || downloadRoster}
       onCellContextMenu={onCellContextMenu}
       renderCellExtra={renderCellExtra}
       memberNameLabel="Team Member"

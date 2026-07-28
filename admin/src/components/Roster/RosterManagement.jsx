@@ -591,7 +591,7 @@ const days = getRosterDays();
 
     shiftConfig={shiftConfig}
 
-    showDownloadButton={false}
+    showDownloadButton
 
   />
 
